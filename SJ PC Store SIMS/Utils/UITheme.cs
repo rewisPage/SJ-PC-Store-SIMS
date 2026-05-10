@@ -4,7 +4,7 @@ namespace SJ_PC_Store_SIMS.Utils
 {
     public static class UITheme
     {
-        public static bool IsDarkMode = true;
+        public static bool IsDarkMode = false;
 
         // Brand Colors
         public static Color PrimaryDark = ColorTranslator.FromHtml("#0A2440");
