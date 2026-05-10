@@ -219,7 +219,9 @@ namespace SJ_PC_Store_SIMS.Views
                 ForeColor = Color.Black,
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                FlatAppearance = { BorderSize = 0, BorderColor = UITheme.AccentYellow } // BorderColor is set to the same as BackColor to create a solid button look
+
             };
         }
 
