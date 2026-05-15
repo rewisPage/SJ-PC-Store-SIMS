@@ -282,5 +282,18 @@ namespace SJ_PC_Store_SIMS.Views
                 MessageBox.Show("Invalid username or password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        // --- ULTIMATE WINFORMS OPTIMIZATION ---
+        // This overrides the core Windows API rendering to force double-buffering
+        // across all child controls, completely eliminating white flickers during resize or theme swaps.
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // Turn on WS_EX_COMPOSITED
+                return cp;
+            }
+        }
     }
 }
