@@ -11,5 +11,6 @@ namespace SJ_PC_Store_SIMS.Models
         public decimal BaselineCost { get; set; }
         public decimal CurrentValue { get; set; }
         public int PhysicalStockCount { get; set; } // Calculated field
+        public bool IsActive { get; set; } // Added for Soft Deletion
     }
 }

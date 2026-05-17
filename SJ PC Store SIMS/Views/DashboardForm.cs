@@ -7,7 +7,6 @@ using SJ_PC_Store_SIMS.Utils;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Controllers;
 using System.Collections.Generic;
-using ReaLTaiizor.Controls;
 using Panel = System.Windows.Forms.Panel;
 
 namespace SJ_PC_Store_SIMS.Views
@@ -27,11 +26,15 @@ namespace SJ_PC_Store_SIMS.Views
         private DashboardController _dashboardController;
         private System.Windows.Forms.Timer _clockTimer;
 
+        // Flags to prevent notification spam during Reflection updates
+        private bool _isFirstLoad = true;
+        private int _lastLowStockCount = -1;
+
         // Main Layout Panels
         private BufferedPanel pnlSidebar;
         private BufferedPanel pnlHeader;
         private Panel pnlWorkspace;
-        private Panel pnlDashboardContainer; // NEW: Holds the dashboard summaries safely
+        private Panel pnlDashboardContainer;
 
         // Notification UI
         private BufferedPanel pnlNotifDropdown;
@@ -95,7 +98,6 @@ namespace SJ_PC_Store_SIMS.Views
 
             FlowLayoutPanel flpNav = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 20, 0, 0), BackColor = Color.Transparent };
 
-            // Initialize Nav Buttons
             IconButton btnDash = CreateNavButton("Dashboard", IconChar.ChartPie, true);
             IconButton btnPOS = CreateNavButton("Sales POS", IconChar.ShoppingCart, false);
             IconButton btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
@@ -106,7 +108,6 @@ namespace SJ_PC_Store_SIMS.Views
             IconButton btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
             IconButton btnSettings = CreateNavButton("Settings", IconChar.Cog, false);
 
-            // WIRING: Attach Click Events for Navigation
             btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
             btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView()); SetActiveNavButton(btnInv); };
 
@@ -131,7 +132,7 @@ namespace SJ_PC_Store_SIMS.Views
             // --- HEADER (Top) ---
             pnlHeader = new BufferedPanel { Dock = DockStyle.Top, Height = 70 };
 
-            btnHamburger = new IconButton { IconChar = IconChar.Bars, IconSize = 24, Size = new Size(40, 40), Location = new Point(20, 15), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, Cursor = Cursors.Hand };
+            btnHamburger = new IconButton { IconChar = IconChar.Bars, IconFont = FontAwesome.Sharp.IconFont.Solid, IconSize = 24, Size = new Size(40, 40), Location = new Point(20, 15), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, Cursor = Cursors.Hand };
             btnHamburger.FlatAppearance.BorderSize = 0;
             btnHamburger.FlatAppearance.MouseOverBackColor = Color.Transparent;
             btnHamburger.FlatAppearance.MouseDownBackColor = Color.Transparent;
@@ -141,16 +142,10 @@ namespace SJ_PC_Store_SIMS.Views
 
             lblPageTitle = new Label { Text = "Master Dashboard", Font = new Font("Segoe UI", 16F, FontStyle.Bold), AutoSize = true, Location = new Point(70, 20) };
 
-            BufferedPanel pnlHeaderRight = new BufferedPanel
-            {
-                Size = new Size(650, 70),
-                Dock = DockStyle.Right,
-                BackColor = Color.Transparent
-            };
-
+            BufferedPanel pnlHeaderRight = new BufferedPanel { Size = new Size(650, 70), Dock = DockStyle.Right, BackColor = Color.Transparent };
             lblClock = new Label { Text = "Loading time...", Font = UITheme.MainFont, AutoSize = true, Location = new Point(10, 25) };
 
-            btnNotifications = new IconButton { IconChar = IconChar.Bell, IconSize = 22, Size = new Size(40, 40), Location = new Point(280, 15), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, Cursor = Cursors.Hand };
+            btnNotifications = new IconButton { IconChar = IconChar.Bell, IconFont = FontAwesome.Sharp.IconFont.Solid, IconSize = 22, Size = new Size(40, 40), Location = new Point(280, 15), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, Cursor = Cursors.Hand };
             btnNotifications.FlatAppearance.BorderSize = 0;
             btnNotifications.FlatAppearance.MouseOverBackColor = Color.Transparent;
             btnNotifications.FlatAppearance.MouseDownBackColor = Color.Transparent;
@@ -159,7 +154,12 @@ namespace SJ_PC_Store_SIMS.Views
             btnNotifications.Click += (s, e) =>
             {
                 pnlNotifDropdown.Visible = !pnlNotifDropdown.Visible;
-                if (pnlNotifDropdown.Visible) { pnlNotifDropdown.BringToFront(); pnlBadge.Visible = false; }
+                if (pnlNotifDropdown.Visible)
+                {
+                    pnlNotifDropdown.BringToFront();
+                    pnlBadge.Visible = false;
+                    pnlNotifDropdown.Invalidate(); // Ensures crisp redraw over overlapping controls
+                }
             };
 
             pnlBadge = new BufferedPanel { Size = new Size(12, 12), Location = new Point(306, 14), BackColor = Color.Transparent, Visible = false };
@@ -168,7 +168,7 @@ namespace SJ_PC_Store_SIMS.Views
                 using (SolidBrush brush = new SolidBrush(Color.FromArgb(239, 68, 68))) { e.Graphics.FillEllipse(brush, 1, 1, 10, 10); }
             };
 
-            btnThemeToggle = new IconButton { IconChar = IconChar.Moon, IconSize = 24, Size = new Size(40, 40), Location = new Point(330, 15), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, Cursor = Cursors.Hand };
+            btnThemeToggle = new IconButton { IconChar = IconChar.Moon, IconFont = FontAwesome.Sharp.IconFont.Solid, IconSize = 24, Size = new Size(40, 40), Location = new Point(330, 15), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, Cursor = Cursors.Hand };
             btnThemeToggle.FlatAppearance.BorderSize = 0;
             btnThemeToggle.FlatAppearance.MouseOverBackColor = Color.Transparent;
             btnThemeToggle.FlatAppearance.MouseDownBackColor = Color.Transparent;
@@ -233,23 +233,40 @@ namespace SJ_PC_Store_SIMS.Views
             pnlDashboardContainer.Controls.Add(pnlSalesSection);
             pnlDashboardContainer.Controls.Add(pnlWelcomeWrapper);
 
-            pnlWorkspace.Controls.Add(pnlDashboardContainer); // Safely nestled!
+            pnlWorkspace.Controls.Add(pnlDashboardContainer);
 
             pnlWorkspace.Resize += (s, e) => { if (pnlNotifDropdown.Visible) pnlNotifDropdown.Visible = false; };
 
-            // REFINED NOTIFICATION DROPDOWN
+            // ========================================================
+            // REFINED NOTIFICATION DROPDOWN (Bug Fix Applied)
+            // ========================================================
             pnlNotifDropdown = new BufferedPanel
             {
-                Size = new Size(400, 500),
+                Size = new Size(450, 500),
                 Visible = false,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(this.ClientSize.Width - 430, 80),
+                Location = new Point(this.ClientSize.Width - 480, 80),
                 BackColor = UITheme.CurrentPanel
             };
+
+            // FIX: Set Region ONCE during initialization to prevent infinite layout invalidation loops
+            using (GraphicsPath path = new GraphicsPath())
+            {
+                int radius = 15;
+                Rectangle rect = new Rectangle(0, 0, pnlNotifDropdown.Width, pnlNotifDropdown.Height);
+                path.AddArc(rect.X, rect.Y, radius, radius, 180, 90);
+                path.AddArc(rect.Right - radius, rect.Y, radius, radius, 270, 90);
+                path.AddArc(rect.Right - radius, rect.Bottom - radius, radius, radius, 0, 90);
+                path.AddArc(rect.X, rect.Bottom - radius, radius, radius, 90, 90);
+                path.CloseFigure();
+                pnlNotifDropdown.Region = new Region(path);
+            }
 
             pnlNotifDropdown.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                // Draw the border without altering the Region property
                 using (GraphicsPath path = new GraphicsPath())
                 {
                     int radius = 15;
@@ -260,8 +277,10 @@ namespace SJ_PC_Store_SIMS.Views
                     path.AddArc(rect.X, rect.Bottom - radius, radius, radius, 90, 90);
                     path.CloseFigure();
 
-                    pnlNotifDropdown.Region = new Region(path);
-                    using (Pen pen = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(pen, 0, 0, 0, 0); e.Graphics.DrawPath(pen, path); }
+                    using (Pen pen = new Pen(UITheme.CurrentBorder, 3))
+                    {
+                        e.Graphics.DrawPath(pen, path);
+                    }
                 }
             };
 
@@ -269,12 +288,15 @@ namespace SJ_PC_Store_SIMS.Views
             _dynamicTexts.Add(lblNotifTitle);
             pnlNotifDropdown.Controls.Add(lblNotifTitle);
 
-            lblClearNotifs = new Label { Text = "Clear All", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), AutoSize = true, Location = new Point(310, 22), Cursor = Cursors.Hand };
+            lblClearNotifs = new Label { Text = "Clear All", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), AutoSize = true, Location = new Point(360, 22), Cursor = Cursors.Hand };
             lblClearNotifs.Click += (s, e) => { flpNotifications.Controls.Clear(); pnlNotifDropdown.Visible = false; };
             pnlNotifDropdown.Controls.Add(lblClearNotifs);
 
-            flpNotifications = new FlowLayoutPanel { Location = new Point(5, 55), Size = new Size(390, 430), AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-            pnlNotifDropdown.Controls.Add(flpNotifications);
+            Panel pnlNotifClip = new Panel { Location = new Point(5, 55), Size = new Size(440, 435), BackColor = Color.Transparent };
+            flpNotifications = new FlowLayoutPanel { Size = new Size(465, 435), AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0) };
+            pnlNotifClip.Controls.Add(flpNotifications);
+
+            pnlNotifDropdown.Controls.Add(pnlNotifClip);
 
             this.Controls.Add(pnlNotifDropdown);
             this.Controls.Add(pnlWorkspace);
@@ -287,18 +309,11 @@ namespace SJ_PC_Store_SIMS.Views
         // ========================================================
         private void LoadUserControl(UserControl uc)
         {
-            pnlDashboardContainer.Visible = false; // Hide the dashboard safely
-
-            // Destroy any previously loaded modules so we don't leak memory
+            pnlDashboardContainer.Visible = false;
             for (int i = pnlWorkspace.Controls.Count - 1; i >= 0; i--)
             {
-                if (pnlWorkspace.Controls[i] is UserControl oldUc)
-                {
-                    pnlWorkspace.Controls.Remove(oldUc);
-                    oldUc.Dispose();
-                }
+                if (pnlWorkspace.Controls[i] is UserControl oldUc) { pnlWorkspace.Controls.Remove(oldUc); oldUc.Dispose(); }
             }
-
             uc.Dock = DockStyle.Fill;
             pnlWorkspace.Controls.Add(uc);
             uc.BringToFront();
@@ -306,16 +321,11 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void ShowDashboard()
         {
-            // Destroy any currently open modules
             for (int i = pnlWorkspace.Controls.Count - 1; i >= 0; i--)
             {
-                if (pnlWorkspace.Controls[i] is UserControl oldUc)
-                {
-                    pnlWorkspace.Controls.Remove(oldUc);
-                    oldUc.Dispose();
-                }
+                if (pnlWorkspace.Controls[i] is UserControl oldUc) { pnlWorkspace.Controls.Remove(oldUc); oldUc.Dispose(); }
             }
-            pnlDashboardContainer.Visible = true; // Bring the dashboard back
+            pnlDashboardContainer.Visible = true;
             pnlDashboardContainer.BringToFront();
         }
 
@@ -332,10 +342,9 @@ namespace SJ_PC_Store_SIMS.Views
             activeBtn.BackColor = Color.FromArgb(25, 255, 255, 255);
         }
 
-        // --- INSTANT TOGGLE (No Animation Timer) ---
         private void BtnHamburger_Click(object sender, EventArgs e)
         {
-            this.SuspendLayout(); // Freeze layout engine while changing width
+            this.SuspendLayout();
 
             bool isExpanding = pnlSidebar.Width == 70;
             pnlSidebar.Width = isExpanding ? 260 : 70;
@@ -343,12 +352,9 @@ namespace SJ_PC_Store_SIMS.Views
             lblBrandText.Visible = isExpanding;
             logoIcon.Location = new Point(isExpanding ? 20 : 15, 19);
 
-            foreach (var btn in _navButtons)
-            {
-                btn.Text = isExpanding ? btn.Tag.ToString() : "";
-            }
+            foreach (var btn in _navButtons) btn.Text = isExpanding ? btn.Tag.ToString() : "";
 
-            this.ResumeLayout(true); // Unfreeze and instantly render the final frame
+            this.ResumeLayout(true);
         }
 
         private void LoadDashboardData()
@@ -369,11 +375,21 @@ namespace SJ_PC_Store_SIMS.Views
                     ((Label)_roundedCards[7].Controls[2]).Text = stats.TotalSuppliers.ToString();
                     ((Label)_roundedCards[8].Controls[2]).Text = stats.TotalActiveUsers.ToString();
 
-                    if (stats.LowStockAlerts > 0)
+                    if (_isFirstLoad)
                     {
-                        AddNotification("Low Stock Alert", $"You have {stats.LowStockAlerts} categories running out of stock.", false);
+                        AddNotification("System Login", "System synchronized with database.", true);
+                        _isFirstLoad = false;
                     }
-                    AddNotification("System Login", "System synchronized with database.", true);
+
+                    if (stats.LowStockAlerts > 0 && stats.LowStockAlerts != _lastLowStockCount)
+                    {
+                        AddNotification("Low Stock Alert", $"You have {stats.LowStockAlerts} blueprints running out of stock.", false);
+                        _lastLowStockCount = stats.LowStockAlerts;
+                    }
+                    else if (stats.LowStockAlerts == 0)
+                    {
+                        _lastLowStockCount = 0;
+                    }
                 }
             }
             catch (Exception)
@@ -384,7 +400,7 @@ namespace SJ_PC_Store_SIMS.Views
 
         public void AddNotification(string title, string message, bool isSuccess)
         {
-            BufferedPanel pnlItem = new BufferedPanel { Size = new Size(360, 95), Margin = new Padding(10, 5, 10, 5) };
+            BufferedPanel pnlItem = new BufferedPanel { Size = new Size(410, 95), Margin = new Padding(15, 5, 10, 5) };
 
             pnlItem.Paint += (s, e) => {
                 using (Pen pen = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(pen, 5, 94, pnlItem.Width - 5, 94); }
