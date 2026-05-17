@@ -15,7 +15,7 @@ namespace SJ_PC_Store_SIMS.Controllers
             {
                 conn.Open();
 
-                // --- SALES OVERVIEW ---
+                // --- SALES OVERVIEW (Compatible with new schema) ---
                 string queryRevenue = @"SELECT ISNULL(SUM(GrandTotal), 0) FROM [TRANSACTION] 
                                         WHERE CONVERT(date, SaleDate) = CONVERT(date, GETDATE())";
                 using (SqlCommand cmd = new SqlCommand(queryRevenue, conn))
@@ -30,34 +30,20 @@ namespace SJ_PC_Store_SIMS.Controllers
                     stats.TransactionsToday = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
-                // --- INVENTORY OVERVIEW ---
-                string queryStockValue = @"SELECT ISNULL(SUM(CurrentValue), 0) FROM [PRODUCT] 
-                                           WHERE Status = 'Available'";
+                // --- INVENTORY OVERVIEW (UPDATED FOR TWO-TIER SYSTEM) ---
+                // We join the physical stock (Available) with the Blueprint to get the CurrentValue
+                string queryStockValue = @"
+                    SELECT ISNULL(SUM(m.CurrentValue), 0) 
+                    FROM STOCK_INSTANCE s 
+                    JOIN ITEM_MASTER m ON s.ItemCode = m.ItemCode 
+                    WHERE s.Status = 'Available'";
                 using (SqlCommand cmd = new SqlCommand(queryStockValue, conn))
                 {
                     stats.TotalStockValue = Convert.ToDecimal(cmd.ExecuteScalar());
                 }
 
-                string queryLowStock = @"SELECT COUNT(*) FROM (
-                                            SELECT Category, COUNT(*) as Qty FROM [PRODUCT] 
-                                            WHERE Status = 'Available' 
-                                            GROUP BY Category 
-                                            HAVING COUNT(*) < 5
-                                         ) as LowStockCategories";
-                using (SqlCommand cmd = new SqlCommand(queryLowStock, conn))
-                {
-                    stats.LowStockAlerts = Convert.ToInt32(cmd.ExecuteScalar());
-                }
-
-                string queryTotalProducts = "SELECT COUNT(SerialNumber) FROM [PRODUCT]";
-                using (SqlCommand cmd = new SqlCommand(queryTotalProducts, conn))
-                {
-                    stats.TotalProducts = Convert.ToInt32(cmd.ExecuteScalar());
-                }
-
-                // --- PROCUREMENT OVERVIEW ---
-                string queryPending = @"SELECT COUNT(PO_Number) FROM [PROCUREMENT] 
-                                        WHERE OrderDate >= DATEADD(day, -7, GETDATE())";
+                // --- PROCUREMENT OVERVIEW (UPDATED FOR P2P LOGIC) ---
+                string queryPending = @"SELECT COUNT(PO_Number) FROM [PROCUREMENT] WHERE Status = 'Pending'";
                 using (SqlCommand cmd = new SqlCommand(queryPending, conn))
                 {
                     stats.PendingProcurements = Convert.ToInt32(cmd.ExecuteScalar());
@@ -69,14 +55,13 @@ namespace SJ_PC_Store_SIMS.Controllers
                     stats.TotalPurchaseOrders = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
-                // --- DATA MANAGEMENT OVERVIEW ---
+                // --- DATA MANAGEMENT & USER OVERVIEW ---
                 string querySuppliers = "SELECT COUNT(SupplierID) FROM [SUPPLIER]";
                 using (SqlCommand cmd = new SqlCommand(querySuppliers, conn))
                 {
                     stats.TotalSuppliers = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
-                // --- USER MANAGEMENT OVERVIEW ---
                 string queryUsers = "SELECT COUNT(UserID) FROM [USER] WHERE Status = 'Active'";
                 using (SqlCommand cmd = new SqlCommand(queryUsers, conn))
                 {

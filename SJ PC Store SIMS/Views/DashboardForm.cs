@@ -31,6 +31,7 @@ namespace SJ_PC_Store_SIMS.Views
         private BufferedPanel pnlSidebar;
         private BufferedPanel pnlHeader;
         private Panel pnlWorkspace;
+        private Panel pnlDashboardContainer; // NEW: Holds the dashboard summaries safely
 
         // Notification UI
         private BufferedPanel pnlNotifDropdown;
@@ -94,6 +95,7 @@ namespace SJ_PC_Store_SIMS.Views
 
             FlowLayoutPanel flpNav = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 20, 0, 0), BackColor = Color.Transparent };
 
+            // Initialize Nav Buttons
             IconButton btnDash = CreateNavButton("Dashboard", IconChar.ChartPie, true);
             IconButton btnPOS = CreateNavButton("Sales POS", IconChar.ShoppingCart, false);
             IconButton btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
@@ -103,6 +105,10 @@ namespace SJ_PC_Store_SIMS.Views
             IconButton btnUsers = CreateNavButton("User Management", IconChar.Users, false);
             IconButton btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
             IconButton btnSettings = CreateNavButton("Settings", IconChar.Cog, false);
+
+            // WIRING: Attach Click Events for Navigation
+            btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
+            btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView()); SetActiveNavButton(btnInv); };
 
             _adminOnlyControls.AddRange(new Control[] { btnInv, btnProc, btnData, btnReports, btnUsers, btnSettings });
             flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings });
@@ -186,7 +192,8 @@ namespace SJ_PC_Store_SIMS.Views
             pnlHeader.Controls.AddRange(new Control[] { btnHamburger, lblPageTitle, pnlHeaderRight });
 
             // --- NATIVE WORKSPACE LAYOUT ENGINE ---
-            pnlWorkspace = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(40, 20, 40, 40) };
+            pnlWorkspace = new Panel { Dock = DockStyle.Fill };
+            pnlDashboardContainer = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(40, 20, 40, 40) };
 
             Panel pnlSalesSection = CreateModuleSection("SALES OVERVIEW", out Panel salesGrid);
             salesGrid.Controls.Add(CreateStatCard("Today's Revenue", "₱ 0.00", "+0% from yesterday", IconChar.Wallet, true, 0, 0));
@@ -219,12 +226,14 @@ namespace SJ_PC_Store_SIMS.Views
             _adminOnlyControls.Add(pnlDataSection);
             _adminOnlyControls.Add(pnlUserSection);
 
-            pnlWorkspace.Controls.Add(pnlUserSection);
-            pnlWorkspace.Controls.Add(pnlDataSection);
-            pnlWorkspace.Controls.Add(pnlProcSection);
-            pnlWorkspace.Controls.Add(pnlInvSection);
-            pnlWorkspace.Controls.Add(pnlSalesSection);
-            pnlWorkspace.Controls.Add(pnlWelcomeWrapper);
+            pnlDashboardContainer.Controls.Add(pnlUserSection);
+            pnlDashboardContainer.Controls.Add(pnlDataSection);
+            pnlDashboardContainer.Controls.Add(pnlProcSection);
+            pnlDashboardContainer.Controls.Add(pnlInvSection);
+            pnlDashboardContainer.Controls.Add(pnlSalesSection);
+            pnlDashboardContainer.Controls.Add(pnlWelcomeWrapper);
+
+            pnlWorkspace.Controls.Add(pnlDashboardContainer); // Safely nestled!
 
             pnlWorkspace.Resize += (s, e) => { if (pnlNotifDropdown.Visible) pnlNotifDropdown.Visible = false; };
 
@@ -271,6 +280,56 @@ namespace SJ_PC_Store_SIMS.Views
             this.Controls.Add(pnlWorkspace);
             this.Controls.Add(pnlHeader);
             this.Controls.Add(pnlSidebar);
+        }
+
+        // ========================================================
+        // WIRING & NAVIGATION LOGIC
+        // ========================================================
+        private void LoadUserControl(UserControl uc)
+        {
+            pnlDashboardContainer.Visible = false; // Hide the dashboard safely
+
+            // Destroy any previously loaded modules so we don't leak memory
+            for (int i = pnlWorkspace.Controls.Count - 1; i >= 0; i--)
+            {
+                if (pnlWorkspace.Controls[i] is UserControl oldUc)
+                {
+                    pnlWorkspace.Controls.Remove(oldUc);
+                    oldUc.Dispose();
+                }
+            }
+
+            uc.Dock = DockStyle.Fill;
+            pnlWorkspace.Controls.Add(uc);
+            uc.BringToFront();
+        }
+
+        private void ShowDashboard()
+        {
+            // Destroy any currently open modules
+            for (int i = pnlWorkspace.Controls.Count - 1; i >= 0; i--)
+            {
+                if (pnlWorkspace.Controls[i] is UserControl oldUc)
+                {
+                    pnlWorkspace.Controls.Remove(oldUc);
+                    oldUc.Dispose();
+                }
+            }
+            pnlDashboardContainer.Visible = true; // Bring the dashboard back
+            pnlDashboardContainer.BringToFront();
+        }
+
+        private void SetActiveNavButton(IconButton activeBtn)
+        {
+            foreach (var btn in _navButtons)
+            {
+                btn.ForeColor = Color.FromArgb(209, 213, 219);
+                btn.IconColor = Color.FromArgb(209, 213, 219);
+                btn.BackColor = Color.Transparent;
+            }
+            activeBtn.ForeColor = UITheme.AccentYellow;
+            activeBtn.IconColor = UITheme.AccentYellow;
+            activeBtn.BackColor = Color.FromArgb(25, 255, 255, 255);
         }
 
         // --- INSTANT TOGGLE (No Animation Timer) ---
@@ -376,12 +435,6 @@ namespace SJ_PC_Store_SIMS.Views
                 btn.ForeColor = UITheme.AccentYellow;
                 btn.IconColor = UITheme.AccentYellow;
                 btn.BackColor = Color.FromArgb(25, 255, 255, 255);
-                btn.Paint += (s, e) => {
-                    if (pnlSidebar.Width > 70)
-                    {
-                        using (SolidBrush brush = new SolidBrush(UITheme.AccentYellow)) { e.Graphics.FillRectangle(brush, 0, 0, 4, 55); }
-                    }
-                };
             }
 
             _navButtons.Add(btn);
