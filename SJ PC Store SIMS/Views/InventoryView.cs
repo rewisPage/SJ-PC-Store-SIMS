@@ -8,6 +8,8 @@ using FontAwesome.Sharp;
 using SJ_PC_Store_SIMS.Utils;
 using SJ_PC_Store_SIMS.Controllers;
 using System.Reflection;
+using SJ_PC_Store_SIMS.Models;
+using System.Linq;
 
 namespace SJ_PC_Store_SIMS.Views
 {
@@ -24,7 +26,7 @@ namespace SJ_PC_Store_SIMS.Views
                 get
                 {
                     CreateParams cp = base.CreateParams;
-                    cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+                    cp.ExStyle |= 0x02000000;
                     return cp;
                 }
             }
@@ -129,6 +131,8 @@ namespace SJ_PC_Store_SIMS.Views
         // VIEW VARIABLES
         // =========================================================================
         private InventoryController _inventoryController;
+        private string _activeUserId;
+
         private SmoothPanel pnlTabs, pnlContent, pnlCatalogTab, pnlStockTab, pnlArchiveTab;
         private TabButton btnTabCatalog, btnTabStock, btnTabArchive;
         private RoundedPanel pnlCatalogToolbar, pnlStockToolbar, pnlArchiveToolbar, pnlCatalogGridContainer, pnlStockGridContainer, pnlArchiveGridContainer;
@@ -140,15 +144,18 @@ namespace SJ_PC_Store_SIMS.Views
 
         private int _hoverRowCat = -1; private string _hoverIconCat = "";
         private int _hoverRowStock = -1; private bool _hoverIconStock = false;
-        private int _hoverRowArch = -1; private bool _hoverIconArch = false;
+        private int _hoverRowArch = -1; private string _hoverIconArch = "";
 
         private List<RoundedPanel> _inputWrappers = new List<RoundedPanel>();
         private List<TextBox> _textInputs = new List<TextBox>();
         private List<DarkComboBox> _comboInputs = new List<DarkComboBox>();
         private List<FontAwesome.Sharp.IconButton> _buttons = new List<FontAwesome.Sharp.IconButton>();
 
-        public InventoryView()
+        private List<ItemMasterModel> _blueprintCache = new List<ItemMasterModel>();
+
+        public InventoryView(string currentUserId)
         {
+            _activeUserId = currentUserId;
             _inventoryController = new InventoryController();
 
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
@@ -169,7 +176,7 @@ namespace SJ_PC_Store_SIMS.Views
         // =========================================================================
         private void LogAndNotify(string title, string message, bool isSuccess = true)
         {
-            _inventoryController.LogActivity("ADMIN", $"{title} - {message}");
+            _inventoryController.LogActivity(_activeUserId, $"{title} - {message}");
 
             if (this.FindForm() is DashboardForm dash)
             {
@@ -327,6 +334,10 @@ namespace SJ_PC_Store_SIMS.Views
         {
             dgvCatalog.Rows.Clear();
             var items = _inventoryController.GetAllBlueprints();
+
+            _blueprintCache.RemoveAll(i => items.Any(newI => newI.ItemCode == i.ItemCode));
+            _blueprintCache.AddRange(items);
+
             foreach (var item in items) dgvCatalog.Rows.Add(item.ItemCode, item.Category, item.Specs, item.ItemCondition, item.CurrentValue, item.PhysicalStockCount, "");
         }
 
@@ -341,6 +352,10 @@ namespace SJ_PC_Store_SIMS.Views
         {
             dgvArchive.Rows.Clear();
             var items = _inventoryController.GetArchivedBlueprints();
+
+            _blueprintCache.RemoveAll(i => items.Any(newI => newI.ItemCode == i.ItemCode));
+            _blueprintCache.AddRange(items);
+
             foreach (var item in items) dgvArchive.Rows.Add(item.ItemCode, item.Category, item.Specs, item.ItemCondition, "");
         }
 
@@ -445,11 +460,6 @@ namespace SJ_PC_Store_SIMS.Views
         // =========================================================================
         // DATAGRIDVIEW SETUP & EMPTY STATES
         // =========================================================================
-        private SmoothGrid CreateDataGridView()
-        {
-            return new SmoothGrid { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, CellBorderStyle = DataGridViewCellBorderStyle.Single, ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single, EnableHeadersVisualStyles = false, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false, ReadOnly = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 50, RowTemplate = { Height = 55 }, Cursor = Cursors.Hand };
-        }
-
         private void SetupCatalogColumns()
         {
             dgvCatalog.Columns.Add("ColCode", "ITEM CODE");
@@ -459,7 +469,7 @@ namespace SJ_PC_Store_SIMS.Views
             dgvCatalog.Columns.Add("ColValue", "VALUE (SELLING)");
             dgvCatalog.Columns.Add("ColStock", "PHYSICAL STOCK");
 
-            DataGridViewTextBoxColumn colActions = new DataGridViewTextBoxColumn { HeaderText = "ACTIONS", Name = "ColActions", Width = 110, AutoSizeMode = DataGridViewAutoSizeColumnMode.None };
+            DataGridViewTextBoxColumn colActions = new DataGridViewTextBoxColumn { HeaderText = "ACTIONS", Name = "ColActions", Width = 140, AutoSizeMode = DataGridViewAutoSizeColumnMode.None };
             dgvCatalog.Columns.Add(colActions);
 
             dgvCatalog.Columns["ColCode"].DefaultCellStyle.Font = new Font("Consolas", 11F, FontStyle.Bold);
@@ -476,8 +486,13 @@ namespace SJ_PC_Store_SIMS.Views
             dgvCatalog.CellMouseLeave += (s, e) => { _hoverRowCat = -1; _hoverIconCat = ""; dgvCatalog.Invalidate(); };
 
             dgvCatalog.Paint += (s, e) => {
-                if (dgvCatalog.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "The Blueprint Catalog is empty.\nClick '+ New Blueprint' to create one!", new Font("Segoe UI", 11F, FontStyle.Italic), dgvCatalog.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                if (dgvCatalog.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "The Blueprint Catalog is empty.\nClick 'New Blueprint' to create one!", new Font("Segoe UI", 11F, FontStyle.Italic), dgvCatalog.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             };
+        }
+
+        private SmoothGrid CreateDataGridView()
+        {
+            return new SmoothGrid { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, CellBorderStyle = DataGridViewCellBorderStyle.Single, ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single, EnableHeadersVisualStyles = false, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false, ReadOnly = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 50, RowTemplate = { Height = 55 }, Cursor = Cursors.Hand };
         }
 
         private void DgvCatalog_CellMouseMove(object sender, DataGridViewCellMouseEventArgs e)
@@ -485,10 +500,11 @@ namespace SJ_PC_Store_SIMS.Views
             if (e.RowIndex >= 0 && e.ColumnIndex == dgvCatalog.Columns["ColActions"].Index)
             {
                 int iconSize = 18; int gap = 8; int startX = 18;
-                bool overEdit = e.X >= startX && e.X <= startX + iconSize;
-                bool overDel = e.X >= startX + iconSize + gap && e.X <= startX + (iconSize * 2) + gap;
+                bool overInfo = e.X >= startX && e.X <= startX + iconSize;
+                bool overEdit = e.X >= startX + iconSize + gap && e.X <= startX + (iconSize * 2) + gap;
+                bool overDel = e.X >= startX + (iconSize * 2) + (gap * 2) && e.X <= startX + (iconSize * 3) + (gap * 2);
 
-                string currentHover = overEdit ? "Edit" : (overDel ? "Delete" : "");
+                string currentHover = overInfo ? "Info" : (overEdit ? "Edit" : (overDel ? "Delete" : ""));
                 if (_hoverRowCat != e.RowIndex || _hoverIconCat != currentHover)
                 {
                     _hoverRowCat = e.RowIndex; _hoverIconCat = currentHover;
@@ -502,7 +518,8 @@ namespace SJ_PC_Store_SIMS.Views
             if (e.RowIndex >= 0 && e.ColumnIndex == dgvCatalog.Columns["ColActions"].Index)
             {
                 DataGridViewRow row = dgvCatalog.Rows[e.RowIndex];
-                if (_hoverIconCat == "Edit") OpenModal("Edit", row);
+                if (_hoverIconCat == "Info") OpenModal("Details", row);
+                else if (_hoverIconCat == "Edit") OpenModal("Edit", row);
                 else if (_hoverIconCat == "Delete") OpenModal("Delete", row);
             }
         }
@@ -516,14 +533,17 @@ namespace SJ_PC_Store_SIMS.Views
                 int startX = e.CellBounds.X + 18;
                 int startY = e.CellBounds.Y + (e.CellBounds.Height - iconSize) / 2;
 
+                Color cInfo = (_hoverRowCat == e.RowIndex && _hoverIconCat == "Info") ? UITheme.AccentYellow : UITheme.MutedText;
                 Color cEdit = (_hoverRowCat == e.RowIndex && _hoverIconCat == "Edit") ? UITheme.AccentYellow : UITheme.MutedText;
                 Color cDel = (_hoverRowCat == e.RowIndex && _hoverIconCat == "Delete") ? UITheme.AccentYellow : Color.FromArgb(239, 68, 68);
 
+                using (Bitmap infoIcon = SafeGetIcon(IconChar.InfoCircle, cInfo, iconSize))
                 using (Bitmap editIcon = SafeGetIcon(IconChar.Pen, cEdit, iconSize))
                 using (Bitmap delIcon = SafeGetIcon(IconChar.Trash, cDel, iconSize))
                 {
-                    e.Graphics.DrawImage(editIcon, startX, startY, iconSize, iconSize);
-                    e.Graphics.DrawImage(delIcon, startX + iconSize + gap, startY, iconSize, iconSize);
+                    e.Graphics.DrawImage(infoIcon, startX, startY, iconSize, iconSize);
+                    e.Graphics.DrawImage(editIcon, startX + iconSize + gap, startY, iconSize, iconSize);
+                    e.Graphics.DrawImage(delIcon, startX + (iconSize * 2) + (gap * 2), startY, iconSize, iconSize);
                 }
                 e.Handled = true;
             }
@@ -603,7 +623,8 @@ namespace SJ_PC_Store_SIMS.Views
             dgvArchive.Columns.Add("ColSpecsArch", "HARDWARE SPECS");
             dgvArchive.Columns.Add("ColCondArch", "CONDITION");
 
-            DataGridViewTextBoxColumn colActions = new DataGridViewTextBoxColumn { HeaderText = "ACTIONS", Name = "ColActionsArch", Width = 110, AutoSizeMode = DataGridViewAutoSizeColumnMode.None };
+            // Extended width for 3 icons (Info, Restore, Permanent Delete)
+            DataGridViewTextBoxColumn colActions = new DataGridViewTextBoxColumn { HeaderText = "ACTIONS", Name = "ColActionsArch", Width = 140, AutoSizeMode = DataGridViewAutoSizeColumnMode.None };
             dgvArchive.Columns.Add(colActions);
 
             dgvArchive.Columns["ColCodeArch"].DefaultCellStyle.Font = new Font("Consolas", 11F, FontStyle.Bold);
@@ -613,8 +634,8 @@ namespace SJ_PC_Store_SIMS.Views
 
             dgvArchive.CellPainting += DgvArchive_CellPainting;
             dgvArchive.CellMouseMove += DgvArchive_CellMouseMove;
-            dgvArchive.CellMouseClick += DgvArchive_CellMouseClick; // NEW RESTORE LOGIC
-            dgvArchive.CellMouseLeave += (s, e) => { _hoverRowArch = -1; _hoverIconArch = false; dgvArchive.Invalidate(); };
+            dgvArchive.CellMouseClick += DgvArchive_CellMouseClick;
+            dgvArchive.CellMouseLeave += (s, e) => { _hoverRowArch = -1; _hoverIconArch = ""; dgvArchive.Invalidate(); };
 
             dgvArchive.Paint += (s, e) => {
                 if (dgvArchive.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "No archived blueprints.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvArchive.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -625,10 +646,15 @@ namespace SJ_PC_Store_SIMS.Views
         {
             if (e.RowIndex >= 0 && e.ColumnIndex == dgvArchive.Columns["ColActionsArch"].Index)
             {
-                bool isHovered = (e.X >= 18 && e.X <= 18 + 18);
-                if (_hoverRowArch != e.RowIndex || _hoverIconArch != isHovered)
+                int iconSize = 18; int gap = 8; int startX = 18;
+                bool overInfo = e.X >= startX && e.X <= startX + iconSize;
+                bool overRestore = e.X >= startX + iconSize + gap && e.X <= startX + (iconSize * 2) + gap;
+                bool overDel = e.X >= startX + (iconSize * 2) + (gap * 2) && e.X <= startX + (iconSize * 3) + (gap * 2);
+
+                string currentHover = overInfo ? "Info" : (overRestore ? "Restore" : (overDel ? "DeletePermanent" : ""));
+                if (_hoverRowArch != e.RowIndex || _hoverIconArch != currentHover)
                 {
-                    _hoverRowArch = e.RowIndex; _hoverIconArch = isHovered;
+                    _hoverRowArch = e.RowIndex; _hoverIconArch = currentHover;
                     dgvArchive.InvalidateCell(e.ColumnIndex, e.RowIndex);
                 }
             }
@@ -636,11 +662,23 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void DgvArchive_CellMouseClick(object sender, DataGridViewCellMouseEventArgs e)
         {
-            if (e.RowIndex >= 0 && e.ColumnIndex == dgvArchive.Columns["ColActionsArch"].Index && _hoverIconArch)
+            if (e.RowIndex >= 0 && e.ColumnIndex == dgvArchive.Columns["ColActionsArch"].Index)
             {
-                // FIX: Triggers the new Restore Confirmation Modal
                 DataGridViewRow row = dgvArchive.Rows[e.RowIndex];
-                OpenModal("Restore", row);
+                if (_hoverIconArch == "Info") OpenModal("Details", row);
+                else if (_hoverIconArch == "Restore") OpenModal("Restore", row);
+                else if (_hoverIconArch == "DeletePermanent")
+                {
+                    string code = row.Cells["ColCodeArch"].Value.ToString();
+                    if (_inventoryController.GetLifetimeStockCount(code) > 0)
+                    {
+                        OpenModal("Error", null, "Cannot permanently delete this blueprint because\nit has historical stock or sales records.");
+                    }
+                    else
+                    {
+                        OpenModal("DeletePermanent", row);
+                    }
+                }
             }
         }
 
@@ -649,10 +687,20 @@ namespace SJ_PC_Store_SIMS.Views
             if (e.RowIndex >= 0 && e.ColumnIndex == dgvArchive.Columns["ColActionsArch"].Index)
             {
                 e.Paint(e.CellBounds, DataGridViewPaintParts.All & ~DataGridViewPaintParts.ContentForeground);
-                int iconSize = 18; int startX = e.CellBounds.X + 18; int startY = e.CellBounds.Y + (e.CellBounds.Height - iconSize) / 2;
+                int iconSize = 18; int gap = 8; int startX = e.CellBounds.X + 18; int startY = e.CellBounds.Y + (e.CellBounds.Height - iconSize) / 2;
 
-                Color cFlag = (_hoverRowArch == e.RowIndex && _hoverIconArch) ? UITheme.AccentYellow : UITheme.MutedText;
-                using (Bitmap icon = SafeGetIcon(IconChar.Undo, cFlag, iconSize)) { e.Graphics.DrawImage(icon, startX, startY, iconSize, iconSize); }
+                Color cInfo = (_hoverRowArch == e.RowIndex && _hoverIconArch == "Info") ? UITheme.AccentYellow : UITheme.MutedText;
+                Color cRestore = (_hoverRowArch == e.RowIndex && _hoverIconArch == "Restore") ? UITheme.AccentYellow : UITheme.MutedText;
+                Color cDel = (_hoverRowArch == e.RowIndex && _hoverIconArch == "DeletePermanent") ? UITheme.AccentYellow : Color.FromArgb(239, 68, 68);
+
+                using (Bitmap infoIcon = SafeGetIcon(IconChar.InfoCircle, cInfo, iconSize))
+                using (Bitmap restoreIcon = SafeGetIcon(IconChar.Undo, cRestore, iconSize))
+                using (Bitmap delIcon = SafeGetIcon(IconChar.Trash, cDel, iconSize))
+                {
+                    e.Graphics.DrawImage(infoIcon, startX, startY, iconSize, iconSize);
+                    e.Graphics.DrawImage(restoreIcon, startX + iconSize + gap, startY, iconSize, iconSize);
+                    e.Graphics.DrawImage(delIcon, startX + (iconSize * 2) + (gap * 2), startY, iconSize, iconSize);
+                }
                 e.Handled = true;
             }
         }
@@ -673,7 +721,7 @@ namespace SJ_PC_Store_SIMS.Views
                     path.AddArc(modal.Width - r - 1, modal.Height - r - 1, r, r, 0, 90); path.AddArc(0, modal.Height - r - 1, r, r, 90, 90);
                     path.CloseFigure(); modal.Region = new Region(path);
 
-                    if (type != "Delete" && type != "Flag" && type != "Error" && type != "Restore")
+                    if (type != "Delete" && type != "Flag" && type != "Error" && type != "Restore" && type != "DeletePermanent")
                     {
                         using (Pen p = new Pen(UITheme.CurrentBorder, 3)) { e.Graphics.DrawPath(p, path); }
                     }
@@ -681,7 +729,7 @@ namespace SJ_PC_Store_SIMS.Views
             };
 
             Panel pnlHeader = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = UITheme.IsDarkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234) };
-            IconChar headerIconType = type == "Create" ? IconChar.Cube : (type == "Edit" ? IconChar.Pen : IconChar.List);
+            IconChar headerIconType = type == "Create" ? IconChar.Cube : (type == "Details" ? IconChar.InfoCircle : (type == "Edit" ? IconChar.Pen : IconChar.List));
             IconPictureBox headerIcon = new IconPictureBox { IconChar = headerIconType, IconColor = UITheme.CurrentText, IconSize = 22, Size = new Size(24, 24), Location = new Point(20, 18) };
             Label lblTitle = new Label { Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(50, 17) };
 
@@ -694,26 +742,28 @@ namespace SJ_PC_Store_SIMS.Views
             pnlHeader.Controls.AddRange(new Control[] { headerIcon, lblTitle, btnClose });
 
             Panel pnlFooter = new Panel { Dock = DockStyle.Bottom, Height = 70, BackColor = UITheme.CurrentPanel };
-            Button btnCancel = new Button { Text = "Cancel", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+            Button btnCancel = new Button { Text = type == "Details" ? "Close" : "Cancel", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
             btnCancel.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnCancel.FlatAppearance.MouseDownBackColor = UITheme.CurrentPanel;
             btnCancel.MouseEnter += (s, e) => btnCancel.BackColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.FromArgb(230, 230, 230);
             btnCancel.MouseLeave += (s, e) => btnCancel.BackColor = Color.Transparent;
             btnCancel.Click += (s, e) => modal.Close();
 
-            if (type == "Delete" || type == "Flag" || type == "Error" || type == "Restore")
+            if (type == "Delete" || type == "Flag" || type == "Error" || type == "Restore" || type == "DeletePermanent")
             {
-                modal.Size = new Size(400, type == "Flag" ? 320 : 250); pnlHeader.Visible = false; btnClose.Location = new Point(350, 10); modal.Controls.Add(btnClose);
+                modal.Size = new Size(400, (type == "Flag" || type == "DeletePermanent") ? 320 : 250); pnlHeader.Visible = false; btnClose.Location = new Point(350, 10); modal.Controls.Add(btnClose);
 
-                // FIX: Dynamic Icon for Restore modal (Green Question Mark)
                 IconChar warnIcon = type == "Error" ? IconChar.TimesCircle : (type == "Restore" ? IconChar.QuestionCircle : IconChar.ExclamationTriangle);
                 Color warnColor = type == "Restore" ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68);
 
                 IconPictureBox iconWarning = new IconPictureBox { IconChar = warnIcon, IconColor = warnColor, IconSize = 60, Size = new Size(60, 60) };
 
-                string titleTxt = type == "Delete" ? "Confirm Archiving" : (type == "Flag" ? "Mark as Defective" : (type == "Restore" ? "Confirm Restore" : "Action Blocked"));
+                string titleTxt = type == "Delete" ? "Confirm Archiving" : (type == "Flag" ? "Mark as Defective" : (type == "Restore" ? "Confirm Restore" : (type == "DeletePermanent" ? "Permanent Deletion" : "Action Blocked")));
                 Label lblWarn = new Label { Text = titleTxt, Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
 
-                string descTxt = type == "Delete" ? "Are you sure you want to archive this blueprint?\nIt will be moved to the Archived tab." : (type == "Flag" ? "Mark this physical stock as defective?\nIt will be removed from available inventory." : (type == "Restore" ? "Are you sure you want to restore this blueprint?\nIt will be returned to the active catalog." : customError));
+                string descTxt = type == "Delete" ? "Are you sure you want to archive this blueprint?\nIt will be moved to the Archived tab." :
+                                 (type == "Flag" ? "Mark this physical stock as defective?\nIt will be removed from available inventory." :
+                                 (type == "Restore" ? "Are you sure you want to restore this blueprint?\nIt will be returned to the active catalog." :
+                                 (type == "DeletePermanent" ? "This will erase the blueprint from the database forever.\nEnter your password to confirm:" : customError)));
                 Label lblDesc = new Label { Text = descTxt, Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
 
                 iconWarning.Location = new Point((modal.Width - iconWarning.Width) / 2, 30);
@@ -721,6 +771,8 @@ namespace SJ_PC_Store_SIMS.Views
                 lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 135);
 
                 DarkComboBox cmbReason = new DarkComboBox();
+                TextBox txtPass = new TextBox();
+
                 if (type == "Flag")
                 {
                     RoundedPanel pnlReason = new RoundedPanel { Size = new Size(300, 38), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 7, 10, 7) };
@@ -728,6 +780,13 @@ namespace SJ_PC_Store_SIMS.Views
                     cmbReason = new DarkComboBox { Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 10F), BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText, Cursor = Cursors.Hand };
                     cmbReason.Items.AddRange(new[] { "DOA - Factory Defect", "DOA - Transit Damage", "Warehouse Damage", "Customer Return - Faulty" }); cmbReason.SelectedIndex = 0;
                     pnlReason.Controls.Add(cmbReason); modal.Controls.Add(pnlReason);
+                }
+                else if (type == "DeletePermanent")
+                {
+                    RoundedPanel pnlPass = new RoundedPanel { Size = new Size(280, 38), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
+                    pnlPass.Location = new Point((modal.Width - pnlPass.Width) / 2, 185);
+                    txtPass = new TextBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, UseSystemPasswordChar = true, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 10.5F) };
+                    pnlPass.Controls.Add(txtPass); modal.Controls.Add(pnlPass);
                 }
 
                 if (type == "Error")
@@ -738,7 +797,7 @@ namespace SJ_PC_Store_SIMS.Views
                 }
                 else
                 {
-                    string actionTxt = type == "Delete" ? "Archive" : (type == "Restore" ? "Restore" : "Flag");
+                    string actionTxt = type == "Delete" ? "Archive" : (type == "Restore" ? "Restore" : (type == "DeletePermanent" ? "Delete" : "Flag"));
                     Color actionBg = type == "Restore" ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68);
 
                     Button btnAction = new Button { Text = actionTxt, Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = actionBg, ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
@@ -754,27 +813,86 @@ namespace SJ_PC_Store_SIMS.Views
                         {
                             string code = rowData.Cells["ColCode"].Value.ToString();
                             if (_inventoryController.GetBlueprintStockCount(code) > 0) { modal.Close(); OpenModal("Error", null, "Cannot archive this blueprint because there\nis active physical stock associated with it."); return; }
-                            if (_inventoryController.DeleteBlueprint(code)) LogAndNotify("Blueprint Archived", $"Item {code} was archived.");
+                            if (_inventoryController.DeleteBlueprint(code, _activeUserId)) LogAndNotify("Blueprint Archived", $"Item {code} was archived.");
                             LoadBlueprints(); LoadArchived();
+                            modal.Close();
                         }
                         else if (type == "Flag")
                         {
                             string sn = rowData.Cells["ColSerial"].Value.ToString();
                             if (_inventoryController.FlagStockDefective(sn, cmbReason.SelectedItem.ToString())) LogAndNotify("Stock Flagged", $"SN {sn} marked as Defective.");
                             LoadStock(); LoadBlueprints();
+                            modal.Close();
                         }
                         else if (type == "Restore")
                         {
-                            // FIX: Restore Blueprint action logic
                             string code = rowData.Cells["ColCodeArch"].Value.ToString();
-                            if (_inventoryController.RestoreBlueprint(code)) LogAndNotify("Blueprint Restored", $"Item {code} successfully restored.");
+                            if (_inventoryController.RestoreBlueprint(code, _activeUserId)) LogAndNotify("Blueprint Restored", $"Item {code} successfully restored.");
                             LoadArchived(); LoadBlueprints();
+                            modal.Close();
                         }
-                        modal.Close();
+                        else if (type == "DeletePermanent")
+                        {
+                            if (string.IsNullOrWhiteSpace(txtPass.Text)) { ShowToast("Password is required.", false); return; }
+                            if (!_inventoryController.VerifyUserPassword(_activeUserId, txtPass.Text)) { ShowToast("Incorrect password.", false); return; }
+
+                            string code = rowData.Cells["ColCodeArch"].Value.ToString();
+                            if (_inventoryController.HardDeleteBlueprint(code, _activeUserId))
+                            {
+                                LogAndNotify("Blueprint Deleted", $"Item {code} was permanently deleted.");
+                                LoadArchived();
+                                modal.Close();
+                            }
+                        }
                     };
                     pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
                 }
                 modal.Controls.AddRange(new Control[] { iconWarning, lblWarn, lblDesc });
+            }
+            else if (type == "Details")
+            {
+                modal.Size = new Size(650, 620);
+                lblTitle.Text = "Item Blueprint Details";
+                btnClose.Location = new Point(600, 10);
+                pnlFooter.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 0, pnlFooter.Width, 0); } };
+
+                string code = rowData.Cells[0].Value.ToString();
+                ItemMasterModel item = _blueprintCache.Find(x => x.ItemCode == code);
+                if (item == null) { modal.Close(); return; }
+
+                int y = 80;
+
+                Action<string, string, int, int, int> AddDetailRow = (lblText, valText, xLoc, yLoc, w) => {
+                    Label l = new Label { Text = lblText, Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, Location = new Point(xLoc, yLoc), AutoSize = true };
+                    RoundedPanel p = new RoundedPanel { Location = new Point(xLoc, yLoc + 20), Size = new Size(w, 38), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
+                    TextBox t = new TextBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 10.5F), ReadOnly = true, Text = valText };
+                    p.Controls.Add(t); modal.Controls.AddRange(new Control[] { l, p });
+                };
+
+                AddDetailRow("Item Code", item.ItemCode, 35, y, 175);
+                AddDetailRow("Item Status", item.IsActive ? "Active" : "Archived", 235, y, 175);
+                AddDetailRow("Available Stock", $"{item.PhysicalStockCount} Units", 435, y, 175); y += 70;
+
+                AddDetailRow("Hardware Category", item.Category, 35, y, 280);
+                AddDetailRow("Item Condition", item.ItemCondition, 335, y, 280); y += 70;
+
+                AddDetailRow("Full Specifications", item.Specs, 35, y, 580); y += 70;
+
+                AddDetailRow("Baseline Cost", $"₱ {item.BaselineCost:N2}", 35, y, 280);
+                AddDetailRow("Current Value (Selling Price)", $"₱ {item.CurrentValue:N2}", 335, y, 280); y += 70;
+
+                AddDetailRow("Lifetime Units Sold", $"{item.TotalSold} Units", 35, y, 280);
+                AddDetailRow("Lifetime Units Defective", $"{item.TotalDefective} Units", 335, y, 280); y += 70;
+
+                Label lblAudit = new Label { Text = "Audit Trail", Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = UITheme.CurrentText, Location = new Point(35, y), AutoSize = true };
+                modal.Controls.Add(lblAudit); y += 25;
+
+                Label lblAuditD1 = new Label { Text = $"Created By: {item.CreatedBy} on {item.CreatedTime:MMM dd, yyyy}", Font = new Font("Segoe UI", 8.5F), ForeColor = UITheme.MutedText, Location = new Point(35, y), AutoSize = true };
+                Label lblAuditD2 = new Label { Text = item.LastModifiedTime.HasValue ? $"Last Modified By: {item.ModifiedBy} on {item.LastModifiedTime.Value:MMM dd, yyyy}" : "Never Modified", Font = new Font("Segoe UI", 8.5F), ForeColor = UITheme.MutedText, Location = new Point(335, y), AutoSize = true };
+                modal.Controls.AddRange(new Control[] { lblAuditD1, lblAuditD2 });
+
+                btnCancel.Location = new Point((modal.Width - btnCancel.Width) / 2, 15);
+                pnlFooter.Controls.Add(btnCancel);
             }
             else if (type == "Category")
             {
@@ -843,7 +961,7 @@ namespace SJ_PC_Store_SIMS.Views
                 TextBox txtCode = new TextBox();
                 if (type == "Create")
                 {
-                    // No Item Code input box for Create per user request
+                    // No Item Code input box for Create
                 }
                 else
                 {
@@ -915,12 +1033,12 @@ namespace SJ_PC_Store_SIMS.Views
                     if (type == "Create")
                     {
                         string generatedCode = _inventoryController.GenerateNextItemCode();
-                        if (_inventoryController.CreateBlueprint(generatedCode, cmbCat.SelectedItem.ToString(), txtSpecs.Text, cmbCond.SelectedItem.ToString(), bCost, cVal))
+                        if (_inventoryController.CreateBlueprint(generatedCode, cmbCat.SelectedItem.ToString(), txtSpecs.Text, cmbCond.SelectedItem.ToString(), bCost, cVal, _activeUserId))
                             LogAndNotify("Blueprint Created", $"Item {generatedCode} was successfully created.");
                     }
                     else
                     {
-                        if (_inventoryController.UpdateBlueprint(txtCode.Text, cmbCat.SelectedItem.ToString(), txtSpecs.Text, cmbCond.SelectedItem.ToString(), bCost, cVal))
+                        if (_inventoryController.UpdateBlueprint(txtCode.Text, cmbCat.SelectedItem.ToString(), txtSpecs.Text, cmbCond.SelectedItem.ToString(), bCost, cVal, _activeUserId))
                             LogAndNotify("Blueprint Updated", $"Item {txtCode.Text} was modified.");
                     }
                     LoadBlueprints(); modal.Close();
