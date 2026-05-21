@@ -8,6 +8,7 @@ using SJ_PC_Store_SIMS.Utils;
 using SJ_PC_Store_SIMS.Controllers;
 using SJ_PC_Store_SIMS.Models;
 using System.Linq;
+using System.Reflection;
 
 namespace SJ_PC_Store_SIMS.Views
 {
@@ -150,10 +151,11 @@ namespace SJ_PC_Store_SIMS.Views
         private List<RoundedPanel> _inputWrappers = new List<RoundedPanel>();
         private List<RoundedPanel> _borderedContainers = new List<RoundedPanel>();
         private List<TextBox> _textInputs = new List<TextBox>();
+        private List<DarkComboBox> _comboInputs = new List<DarkComboBox>(); // FIX: Re-added the missing list declaration
         private List<IconButton> _buttons = new List<IconButton>();
         private List<Panel> _lines = new List<Panel>();
 
-        private Label lblDetName;
+        private Label lblDetName, lblDetID;
         private BadgeLabel badgeStatus;
         private IconPictureBox iconHandshake;
         private TabLabel tabOverview, tabTransactions;
@@ -178,7 +180,13 @@ namespace SJ_PC_Store_SIMS.Views
         private void LogAndNotify(string title, string message, bool isSuccess)
         {
             _dmController.LogActivity(_activeUserId, $"{title} - {message}");
-            if (this.FindForm() is DashboardForm dash) { dash.AddNotification(title, message, isSuccess); }
+
+            if (this.FindForm() is DashboardForm dash)
+            {
+                dash.AddNotification(title, message, isSuccess);
+                var refreshMethod = dash.GetType().GetMethod("LoadDashboardData", BindingFlags.NonPublic | BindingFlags.Instance);
+                refreshMethod?.Invoke(dash, null);
+            }
             ShowToast(message, isSuccess);
         }
 
@@ -244,20 +252,21 @@ namespace SJ_PC_Store_SIMS.Views
             SmoothPanel pnlMasterToolbar = new SmoothPanel { Dock = DockStyle.Top, Height = 120, BackColor = Color.Transparent };
             pnlMasterToolbar.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 119, pnlMasterToolbar.Width, 119); } };
 
-            // FIX: Combo box text dynamically scales height. It perfectly matches the 36px buttons.
-            cmbFilter = new DarkComboBox { Location = new Point(15, 14), Size = new Size(190, 36), Font = new Font("Segoe UI", 12F, FontStyle.Bold), Cursor = Cursors.Hand };
-            cmbFilter.Items.AddRange(new[] { "Active Suppliers", "Inactive Suppliers", "All Suppliers" }); cmbFilter.SelectedIndex = 0;
+            cmbFilter = new DarkComboBox { Location = new Point(15, 15), Size = new Size(230, 36), Font = new Font("Segoe UI", 12F, FontStyle.Bold), Cursor = Cursors.Hand };
+            cmbFilter.Items.AddRange(new[] { "Active Suppliers", "Inactive Suppliers", "All Suppliers" });
+            cmbFilter.SelectedIndex = 2; // Default to All Suppliers
             cmbFilter.SelectedIndexChanged += (s, e) => LoadSuppliers();
+            _comboInputs.Add(cmbFilter);
 
-            btnSort = new IconButton { IconChar = IconChar.SortAlphaDown, IconSize = 18, Size = new Size(36, 36), Location = new Point(215, 14), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Secondary" };
+            btnSort = new IconButton { IconChar = IconChar.SortAlphaDown, IconSize = 18, Size = new Size(36, 36), Location = new Point(260, 15), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Secondary" };
             btnSort.Click += (s, e) => { _sortAsc = !_sortAsc; btnSort.IconChar = _sortAsc ? IconChar.SortAlphaDown : IconChar.SortAlphaUp; LoadSuppliers(); };
 
-            btnAdd = new IconButton { IconChar = IconChar.Plus, IconSize = 18, Size = new Size(36, 36), Location = new Point(260, 14), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "ActionAdd" };
+            btnAdd = new IconButton { IconChar = IconChar.Plus, IconSize = 18, Size = new Size(36, 36), Location = new Point(305, 15), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "ActionAdd" };
             btnAdd.FlatAppearance.BorderSize = 0;
             btnAdd.Click += (s, e) => OpenModal("Create");
             _buttons.Add(btnSort); _buttons.Add(btnAdd);
 
-            Control searchWrapper = CreateSearchInput("Search supplier...", 316, out txtSearch, () => RenderMasterList());
+            Control searchWrapper = CreateSearchInput("Search supplier...", 326, out txtSearch, () => RenderMasterList());
             searchWrapper.Location = new Point(15, 65);
             txtSearch.TextChanged += (s, e) => RenderMasterList();
 
@@ -265,11 +274,14 @@ namespace SJ_PC_Store_SIMS.Views
 
             flpSuppliers = new BufferedFlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0), Margin = new Padding(0) };
 
-            // Empty State Logic for Master List
             flpSuppliers.Paint += (s, e) => {
                 if (_allSuppliers.Count == 0)
                 {
-                    TextRenderer.DrawText(e.Graphics, "No suppliers found.\nClick '+' to register one.", new Font("Segoe UI", 10.5F, FontStyle.Italic), flpSuppliers.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    TextRenderer.DrawText(e.Graphics, "No suppliers in database.\nClick '+' to register one.", new Font("Segoe UI", 10.5F, FontStyle.Italic), flpSuppliers.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+                else if (flpSuppliers.Controls.Count == 0)
+                {
+                    TextRenderer.DrawText(e.Graphics, "No matching suppliers found.", new Font("Segoe UI", 10.5F, FontStyle.Italic), flpSuppliers.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 }
             };
 
@@ -287,7 +299,9 @@ namespace SJ_PC_Store_SIMS.Views
 
             iconHandshake = new IconPictureBox { IconChar = IconChar.Handshake, IconSize = 55, Size = new Size(60, 60), Location = new Point(30, 25), BackColor = Color.Transparent };
             lblDetName = new Label { Text = "Select a Supplier", Font = new Font("Segoe UI", 20F, FontStyle.Bold), AutoSize = true, Location = new Point(95, 20) };
+
             badgeStatus = new BadgeLabel { Text = "Active", Location = new Point(100, 58) };
+            lblDetID = new Label { Text = "SUP-XXXX", Font = new Font("Consolas", 10.5F, FontStyle.Bold), AutoSize = true, Location = new Point(180, 62) };
 
             btnEdit = new IconButton { Text = "  Edit", IconChar = IconChar.Pen, IconSize = 18, Size = new Size(100, 38), Location = new Point(detailContainer.Width - 275, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Secondary", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText };
 
@@ -295,7 +309,6 @@ namespace SJ_PC_Store_SIMS.Views
             btnDeact.MouseEnter += (s, e) => { btnDeact.ForeColor = Color.White; btnDeact.IconColor = Color.White; };
             btnDeact.MouseLeave += (s, e) => { btnDeact.ForeColor = Color.FromArgb(239, 68, 68); btnDeact.IconColor = Color.FromArgb(239, 68, 68); };
 
-            // FIX: Added Dynamic Activate Button
             btnActivate = new IconButton { Text = "  Activate", IconChar = IconChar.Undo, IconSize = 18, Size = new Size(115, 38), Location = new Point(detailContainer.Width - 165, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Success", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText };
             btnActivate.MouseEnter += (s, e) => { btnActivate.ForeColor = Color.White; btnActivate.IconColor = Color.White; };
             btnActivate.MouseLeave += (s, e) => { btnActivate.ForeColor = Color.FromArgb(16, 185, 129); btnActivate.IconColor = Color.FromArgb(16, 185, 129); };
@@ -304,9 +317,9 @@ namespace SJ_PC_Store_SIMS.Views
             btnDeact.Click += (s, e) => { if (_selectedSupplier != null && _selectedSupplier.IsActive) OpenModal("Deactivate"); };
             btnActivate.Click += (s, e) => { if (_selectedSupplier != null && !_selectedSupplier.IsActive) OpenModal("Activate"); };
 
-            pnlDetailHeader.Controls.AddRange(new Control[] { iconHandshake, lblDetName, badgeStatus, btnEdit, btnDeact, btnActivate });
+            pnlDetailHeader.Controls.AddRange(new Control[] { iconHandshake, lblDetName, badgeStatus, lblDetID, btnEdit, btnDeact, btnActivate });
             pnlHeaderWrapper.Controls.Add(pnlDetailHeader);
-            _dynamicTexts.Add(lblDetName); _buttons.Add(btnEdit); _buttons.Add(btnDeact); _buttons.Add(btnActivate);
+            _dynamicTexts.Add(lblDetName); _mutedTexts.Add(lblDetID); _buttons.Add(btnEdit); _buttons.Add(btnDeact); _buttons.Add(btnActivate);
 
             // --- TABS ---
             pnlTabRow = new Panel { Dock = DockStyle.Top, Height = 46, Padding = new Padding(30, 0, 0, 0) };
@@ -324,7 +337,6 @@ namespace SJ_PC_Store_SIMS.Views
             pnlOverviewTab = new SmoothPanel { Dock = DockStyle.Fill, AutoScroll = true };
             pnlTransactionsTab = new SmoothPanel { Dock = DockStyle.Fill, Visible = false };
 
-            // Empty State Logic for Overview
             pnlOverviewTab.Paint += (s, e) => {
                 if (_selectedSupplier == null)
                 {
@@ -363,7 +375,6 @@ namespace SJ_PC_Store_SIMS.Views
                 }
             };
 
-            // Empty State Logic for History Grid
             dgvPOHistory.Paint += (s, e) => {
                 if (dgvPOHistory.Rows.Count == 0 && _selectedSupplier != null) TextRenderer.DrawText(e.Graphics, "No procurement history found for this supplier.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvPOHistory.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             };
@@ -394,25 +405,24 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void LoadSuppliers()
         {
-            string filter = cmbFilter.SelectedItem?.ToString().Split(' ')[0] ?? "Active";
+            string filter = cmbFilter.SelectedItem?.ToString().Split(' ')[0] ?? "All";
             _allSuppliers = _dmController.GetAllSuppliers(filter);
 
             if (_sortAsc) _allSuppliers = _allSuppliers.OrderBy(s => s.CompanyName).ToList();
             else _allSuppliers = _allSuppliers.OrderByDescending(s => s.CompanyName).ToList();
 
-            RenderMasterList();
+            if (_selectedSupplier != null)
+            {
+                var match = _allSuppliers.FirstOrDefault(s => s.SupplierID == _selectedSupplier.SupplierID);
+                _selectedSupplier = match ?? (_allSuppliers.Count > 0 ? _allSuppliers[0] : null);
+            }
+            else
+            {
+                _selectedSupplier = _allSuppliers.Count > 0 ? _allSuppliers[0] : null;
+            }
 
-            if (_selectedSupplier == null && _allSuppliers.Count > 0)
-            {
-                _selectedSupplier = _allSuppliers[0];
-                RenderSupplierDetails();
-            }
-            else if (_allSuppliers.Count == 0)
-            {
-                _selectedSupplier = null;
-                RenderSupplierDetails();
-            }
-            flpSuppliers.Invalidate();
+            RenderMasterList();
+            RenderSupplierDetails();
         }
 
         private void RenderMasterList()
@@ -471,13 +481,14 @@ namespace SJ_PC_Store_SIMS.Views
             {
                 pnlOverviewTab.Controls.Clear();
                 dgvPOHistory.Rows.Clear();
-                lblDetName.Text = ""; badgeStatus.Visible = false;
+                lblDetName.Text = ""; badgeStatus.Visible = false; lblDetID.Text = "";
                 btnEdit.Visible = false; btnDeact.Visible = false; btnActivate.Visible = false; iconHandshake.Visible = false;
                 pnlOverviewTab.Invalidate();
                 return;
             }
 
             lblDetName.Text = _selectedSupplier.CompanyName;
+            lblDetID.Text = _selectedSupplier.SupplierID;
             badgeStatus.Text = _selectedSupplier.IsActive ? "Active" : "Inactive";
 
             badgeStatus.Visible = true; iconHandshake.Visible = true; btnEdit.Visible = true;
@@ -489,7 +500,7 @@ namespace SJ_PC_Store_SIMS.Views
             pnlOverviewTab.SuspendLayout();
             pnlOverviewTab.Controls.Clear();
             _dynamicTexts.Clear(); _mutedTexts.Clear(); _lines.Clear();
-            _dynamicTexts.Add(lblDetName);
+            _dynamicTexts.Add(lblDetName); _mutedTexts.Add(lblDetID);
 
             int y = 30;
             Action<string> AddHeader = (title) => {
@@ -583,8 +594,12 @@ namespace SJ_PC_Store_SIMS.Views
                 IconChar warnIcon = isActivating ? IconChar.QuestionCircle : IconChar.ExclamationTriangle;
 
                 IconPictureBox iconWarning = new IconPictureBox { IconChar = warnIcon, IconColor = themeColor, IconSize = 60, Size = new Size(60, 60), Location = new Point(170, 30) };
-                Label lblWarn = new Label { Text = isActivating ? "Confirm Activation" : "Deactivate Supplier", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(isActivating ? 110 : 105, 100) };
-                Label lblDesc = new Label { Text = isActivating ? $"Are you sure you want to restore\n{_selectedSupplier.CompanyName}?" : $"Are you sure you want to mark\n{_selectedSupplier.CompanyName} as Inactive?", Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(70, 135) };
+
+                Label lblWarn = new Label { Text = isActivating ? "Confirm Activation" : "Deactivate Supplier", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+                lblWarn.Location = new Point((modal.Width - lblWarn.PreferredWidth) / 2, 100);
+
+                Label lblDesc = new Label { Text = isActivating ? $"Are you sure you want to restore\n{_selectedSupplier.CompanyName}?" : $"Are you sure you want to mark\n{_selectedSupplier.CompanyName} as Inactive?", Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
+                lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 135);
 
                 Button btnAction = new Button { Text = isActivating ? "Activate" : "Deactivate", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = themeColor, ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
                 btnAction.FlatAppearance.BorderSize = 0;
@@ -597,11 +612,19 @@ namespace SJ_PC_Store_SIMS.Views
                 btnAction.Click += (s, e) => {
                     if (isActivating)
                     {
-                        if (_dmController.ActivateSupplier(_selectedSupplier.SupplierID, _activeUserId)) LogAndNotify("Supplier Restored", $"{_selectedSupplier.CompanyName} is now active.", true);
+                        if (_dmController.ActivateSupplier(_selectedSupplier.SupplierID, _activeUserId))
+                        {
+                            _selectedSupplier.IsActive = true;
+                            LogAndNotify("Supplier Restored", $"{_selectedSupplier.CompanyName} is now active.", true);
+                        }
                     }
                     else
                     {
-                        if (_dmController.DeactivateSupplier(_selectedSupplier.SupplierID, _activeUserId)) LogAndNotify("Supplier Deactivated", $"{_selectedSupplier.CompanyName} is now inactive.", true);
+                        if (_dmController.DeactivateSupplier(_selectedSupplier.SupplierID, _activeUserId))
+                        {
+                            _selectedSupplier.IsActive = false;
+                            LogAndNotify("Supplier Deactivated", $"{_selectedSupplier.CompanyName} is now inactive.", true);
+                        }
                     }
                     LoadSuppliers(); modal.Close();
                 };
