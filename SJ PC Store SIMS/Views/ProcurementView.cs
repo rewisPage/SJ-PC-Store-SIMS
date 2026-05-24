@@ -19,6 +19,12 @@ using TextBox = System.Windows.Forms.TextBox;
 
 namespace SJ_PC_Store_SIMS.Views
 {
+    internal static class WinApi
+    {
+        [System.Runtime.InteropServices.DllImport("uxtheme.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string appName, string idList);
+    }
+
     public class ProcurementView : System.Windows.Forms.UserControl
     {
         // =========================================================================
@@ -123,6 +129,152 @@ namespace SJ_PC_Store_SIMS.Views
             }
         }
 
+        private class ThemedMonthCalendar : MonthCalendar
+        {
+            private Color _backColor = SystemColors.Window;
+
+            public new Color BackColor
+            {
+                get => _backColor;
+                set
+                {
+                    _backColor = value;
+                    this.Invalidate();
+                }
+            }
+
+            protected override void OnHandleCreated(EventArgs e)
+            {
+                base.OnHandleCreated(e);
+                // Remove visual style so that BackColor works
+                WinApi.SetWindowTheme(this.Handle, "", "");
+            }
+        }
+
+        private class ThemedDatePicker : Panel
+        {
+            public DateTime Value { get => _selectedDate; set { _selectedDate = value; txtDate.Text = value.ToString("MM/dd/yyyy"); } }
+            private DateTime _selectedDate = DateTime.Now;
+            private TextBox txtDate;
+            private Button btnDrop;
+            private ThemedMonthCalendar monthCal;
+            private Form popup;
+            private bool isDarkMode;
+
+            public ThemedDatePicker()
+            {
+                this.Size = new Size(180, 38);
+                this.Padding = new Padding(0);
+                this.BackColor = UITheme.CurrentInputBg;
+
+                txtDate = new TextBox
+                {
+                    Dock = DockStyle.Fill,
+                    BorderStyle = BorderStyle.None,
+                    Font = new Font("Segoe UI", 11F),
+                    Text = _selectedDate.ToString("MM/dd/yyyy"),
+                    ReadOnly = true,
+                    BackColor = this.BackColor,
+                    ForeColor = UITheme.CurrentText
+                };
+                txtDate.Click += (s, e) => ToggleCalendar();
+
+                btnDrop = new Button
+                {
+                    Text = "▼",
+                    Dock = DockStyle.Right,
+                    Width = 24,
+                    FlatStyle = FlatStyle.Flat,
+                    Font = new Font("Segoe UI", 8F),
+                    BackColor = this.BackColor,
+                    ForeColor = UITheme.CurrentText,
+                    Cursor = Cursors.Hand
+                };
+                btnDrop.FlatAppearance.BorderSize = 0;
+                btnDrop.Click += (s, e) => ToggleCalendar();
+                btnDrop.MouseEnter += (s, e) => { btnDrop.BackColor = UITheme.IsDarkMode ? Color.FromArgb(60, 58, 65) : Color.FromArgb(200, 200, 200); };
+                btnDrop.MouseLeave += (s, e) => { btnDrop.BackColor = this.BackColor; };
+
+                this.Controls.Add(txtDate);
+                this.Controls.Add(btnDrop);
+                txtDate.BringToFront();
+            }
+
+            private void ToggleCalendar()
+            {
+                if (popup == null || popup.IsDisposed)
+                {
+                    popup = new Form
+                    {
+                        FormBorderStyle = FormBorderStyle.None,
+                        StartPosition = FormStartPosition.Manual,
+                        ShowInTaskbar = false,
+                        TopMost = true,
+                        BackColor = UITheme.CurrentInputBg,
+                        Padding = new Padding(0)
+                    };
+
+                    monthCal = new ThemedMonthCalendar
+                    {
+                        MaxSelectionCount = 1,
+                        BoldedDates = new DateTime[] { DateTime.Today },
+                        BackColor = UITheme.CurrentInputBg,
+                        ForeColor = UITheme.CurrentText,
+                        TitleBackColor = UITheme.IsDarkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234),
+                        TitleForeColor = UITheme.CurrentText,
+                        TrailingForeColor = UITheme.MutedText
+                    };
+                    monthCal.DateSelected += (s, ev) =>
+                    {
+                        Value = monthCal.SelectionStart;
+                        popup.Close();
+                    };
+
+                    popup.Controls.Add(monthCal);
+                    popup.Deactivate += (s, e) => popup.Close();
+
+                    Size calSize = monthCal.GetPreferredSize(Size.Empty);
+                    popup.ClientSize = new Size(calSize.Width + 40, calSize.Height + 8);
+                }
+
+                // Position the popup, keeping it inside the screen bounds
+                Point screenLoc = this.PointToScreen(new Point(0, this.Height));
+                Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+                if (screenLoc.Y + popup.Height > workingArea.Bottom)
+                    screenLoc.Y -= this.Height + popup.Height; // show above instead
+                if (screenLoc.X + popup.Width > workingArea.Right)
+                    screenLoc.X = workingArea.Right - popup.Width;
+                popup.Location = screenLoc;
+                popup.Show();
+                monthCal.Focus();
+            }
+
+            public void ApplyTheme(bool darkMode)
+            {
+                isDarkMode = darkMode;
+                Color bg = UITheme.CurrentInputBg;
+                this.BackColor = bg;
+                txtDate.BackColor = bg;
+                txtDate.ForeColor = UITheme.CurrentText;
+                btnDrop.BackColor = bg;
+                btnDrop.ForeColor = UITheme.CurrentText;
+
+                if (popup != null && !popup.IsDisposed)
+                {
+                    popup.BackColor = bg;
+                    if (monthCal != null)
+                    {
+                        monthCal.BackColor = bg;
+                        monthCal.ForeColor = UITheme.CurrentText;
+                        monthCal.TitleBackColor = darkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234);
+                        monthCal.TitleForeColor = UITheme.CurrentText;
+                        monthCal.TrailingForeColor = UITheme.MutedText;
+                        monthCal.Invalidate();
+                    }
+                }
+            }
+        }
+
         // =========================================================================
         // VARIABLES
         // =========================================================================
@@ -151,7 +303,7 @@ namespace SJ_PC_Store_SIMS.Views
         // Profile Controls
         private Label lblDetTitle, lblDetSupplier, lblDetSupAddress, lblDetContact;
         private Label lblDetDates, lblDetRemarks, lblDetAuditCreated, lblDetAuditApproved;
-        private Label lblTotalSub, lblTotalDisc, lblTotalGrand;
+        private Label lblTotalSub, lblTotalDisc, lblTotalTax, lblTotalGrand;
         private BadgeLabel badgeStatus;
         private IconButton btnApprove, btnCancel, btnGoodsReceipt, btnPDF, btnEdit, btnAddRow;
         private FlowLayoutPanel flpLeftDetails;
@@ -161,7 +313,7 @@ namespace SJ_PC_Store_SIMS.Views
         // Create/Edit Controls
         private Label lblCreateTitle, lblCreateSub, lblCreateGrand;
 
-        private DateTimePicker dtpOrderDate, dtpExpectedDate;
+        private ThemedDatePicker dtpOrderDate, dtpExpectedDate;
         private DarkComboBox cmbCreateSupplier, cmbCreateDiscountType, cmbCreateTaxType;
         private TextBox txtCreateRemarks, txtCreateDiscount, txtCreateTax;
         private BufferedFlowLayoutPanel flpCreateItems;
@@ -171,12 +323,18 @@ namespace SJ_PC_Store_SIMS.Views
         private List<ItemMasterModel> _dbItems = new List<ItemMasterModel>();
         private TableLayoutPanel tlpItemH;
 
+        // ATTACHMENTS
+        private AttachmentController _attachController;
+        private FlowLayoutPanel flpAttachments;  // inside cardAttach
+        private Button btnAttach;
+
         public ProcurementView(string currentUserId)
         {
             _activeUserId = currentUserId;
             _procController = new ProcurementController();
             _supplierController = new DataManagementController();
             _inventoryController = new InventoryController();
+            _attachController = new AttachmentController();
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
             this.Padding = new Padding(35, 20, 35, 35); this.Margin = new Padding(0);
 
@@ -302,9 +460,8 @@ namespace SJ_PC_Store_SIMS.Views
             toolbar.Controls.AddRange(new Control[] { cmbFilter, searchWrapper, btnCreate });
 
             dgvPOList = new SmoothGrid { 
-                Dock = DockStyle.Fill, 
-                BorderStyle = BorderStyle.None, 
-                CellBorderStyle = DataGridViewCellBorderStyle.None, 
+                BorderStyle = BorderStyle.None,
+                Dock = DockStyle.Fill,
                 ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None, 
                 EnableHeadersVisualStyles = false, AllowUserToAddRows = false, 
                 ReadOnly = true, 
@@ -312,6 +469,8 @@ namespace SJ_PC_Store_SIMS.Views
                 RowHeadersVisible = false, AutoSizeColumnsMode = 
                 DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 60, 
                 RowTemplate = { Height = 60 }, Cursor = Cursors.Hand };
+            dgvPOList.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            dgvPOList.GridColor = UITheme.CurrentBorder;
             dgvPOList.Columns.Add("PO", "PO NUMBER"); dgvPOList.Columns.Add("Sup", "SUPPLIER NAME"); dgvPOList.Columns.Add("Date", "ORDER DATE"); dgvPOList.Columns.Add("Total", "TOTAL AMOUNT"); dgvPOList.Columns.Add("Status", "STATUS");
 
             dgvPOList.Columns["PO"].DefaultCellStyle.Font = new Font("Consolas", 11F, FontStyle.Bold);
@@ -475,10 +634,64 @@ namespace SJ_PC_Store_SIMS.Views
             cardSchedule.SizeChanged += (s, e) => AdjustCardHeight(cardSchedule);
 
             cardAttach = CreateInfoSection("Attachments");
-            RoundedPanel pnlDrop = new RoundedPanel { Size = new Size(280, 80), Location = new Point(20, 20), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, Cursor = Cursors.Hand };
-            pnlDrop.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (Pen p = new Pen(UITheme.MutedText, 1) { DashStyle = DashStyle.Dash }) { e.Graphics.DrawRectangle(p, 0, 0, pnlDrop.Width - 1, pnlDrop.Height - 1); } };
-            Label lDropText = new Label { Text = "Click to upload Supplier Invoice or files", Font = new Font("Segoe UI", 8.5F), ForeColor = UITheme.MutedText, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter };
-            pnlDrop.Controls.Add(lDropText); cardAttach.Controls.Add(pnlDrop);
+            btnAttach = new Button
+            {
+                Text = "📝 Attach File",
+                Dock = DockStyle.Top,
+                Size = new Size(110, 35),
+                Location = new Point(20, 20),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark,
+                ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White
+            };
+            btnAttach.FlatAppearance.BorderSize = 0;
+            btnAttach.Click += (s, e) =>
+            {
+                using (OpenFileDialog ofd = new OpenFileDialog())
+                {
+                    ofd.Multiselect = true;
+                    ofd.Filter = "All Files|*.*|Documents|*.pdf;*.docx;*.xlsx|Images|*.jpg;*.png;*.bmp";
+                    if (ofd.ShowDialog() == DialogResult.OK)
+                    {
+                        foreach (string file in ofd.FileNames)
+                        {
+                            _attachController.UploadAttachment(_selectedPO.PO_Number, file, _activeUserId);
+                        }
+                        LogAndNotify("Attachment", $"{ofd.FileNames.Length} file(s) attached.", true);
+                        LoadAttachments(); // refresh list
+                    }
+                }
+            };
+            btnAttach.MouseEnter += (s, e) => { btnAttach.BackColor = UITheme.IsDarkMode ? Color.FromArgb(255, 230, 120) : UITheme.SecondaryDark; };
+            btnAttach.MouseLeave += (s, e) => { btnAttach.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark; };
+            cardAttach.Controls.Add(btnAttach);
+
+            // Drag-and-drop support for the card
+            cardAttach.AllowDrop = true;
+            cardAttach.DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
+            cardAttach.DragDrop += (s, e) =>
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                foreach (string file in files)
+                {
+                    _attachController.UploadAttachment(_selectedPO.PO_Number, file, _activeUserId);
+                }
+                LogAndNotify("Attachment", $"{files.Length} file(s) attached via drag & drop.", true);
+                LoadAttachments();
+            };
+
+            // Panel that will hold the attachment list
+            flpAttachments = new FlowLayoutPanel
+            {
+                Location = new Point(20, 65),
+                Size = new Size(280, 150),
+                AutoScroll = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false
+            };
+            cardAttach.Controls.Add(flpAttachments);
             cardAttach.SizeChanged += (s, e) => AdjustCardHeight(cardAttach);
 
             cardAudit = CreateInfoSection("Audit Trail");
@@ -487,7 +700,7 @@ namespace SJ_PC_Store_SIMS.Views
             cardAudit.Controls.AddRange(new Control[] { lblDetAuditCreated, lblDetAuditApproved });
             cardAudit.SizeChanged += (s, e) => AdjustCardHeight(cardAudit);
 
-            _mutedTexts.AddRange(new[] { lblDetSupAddress, lblDetContact, lblDetDates, lblDetRemarks, lDropText, lblDetAuditCreated, lblDetAuditApproved });
+            _mutedTexts.AddRange(new[] { lblDetSupAddress, lblDetContact, lblDetDates, lblDetRemarks, lblDetAuditCreated, lblDetAuditApproved });
 
             // RIGHT ITEMS SECTION
             Panel pnlRightHeader = new Panel { Dock = DockStyle.Top, Height = 60 };
@@ -508,13 +721,20 @@ namespace SJ_PC_Store_SIMS.Views
             dgvProfileItems.DefaultCellStyle.Padding = new Padding(15, 0, 0, 0);
             dgvProfileItems.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawLine(p, 0, 49, dgvProfileItems.Width, 49); } };
 
-            Panel pnlTotalsWrapper = new Panel { Dock = DockStyle.Bottom, Height = 150, Padding = new Padding(0, 20, 0, 0) };
-            RoundedPanel pnlTotals = new RoundedPanel { Size = new Size(350, 130), Dock = DockStyle.Right, BorderRadius = 6, BorderSize = 1 };
+            Panel pnlTotalsWrapper = new Panel { Dock = DockStyle.Bottom, Height = 170, Padding = new Padding(0, 20, 0, 0) };
+            RoundedPanel pnlTotals = new RoundedPanel { Size = new Size(350, 160), Dock = DockStyle.Right, BorderRadius = 6, BorderSize = 1 };
+
             lblTotalSub = new Label { Font = new Font("Segoe UI", 10F), AutoSize = true, Location = new Point(20, 20) };
             lblTotalDisc = new Label { Font = new Font("Segoe UI", 10F), AutoSize = true, Location = new Point(20, 50), ForeColor = Color.FromArgb(16, 185, 129) };
-            lblTotalGrand = new Label { Font = new Font("Segoe UI", 14F, FontStyle.Bold), AutoSize = true, Location = new Point(20, 85) };
-            _dynamicTexts.AddRange(new[] { lblTotalSub, lblTotalGrand }); _borderedContainers.Add(pnlTotals);
-            pnlTotals.Controls.AddRange(new Control[] { lblTotalSub, lblTotalDisc, lblTotalGrand });
+            lblTotalTax = new Label { Font = new Font("Segoe UI", 10F), AutoSize = true, Location = new Point(20, 80) };
+            lblTotalGrand = new Label { Font = new Font("Segoe UI", 14F, FontStyle.Bold), AutoSize = true, Location = new Point(20, 115) };
+
+            _dynamicTexts.AddRange(new[] { lblTotalSub, lblTotalGrand, lblTotalTax });
+
+            _borderedContainers.Add(pnlTotals);
+
+            pnlTotals.Controls.AddRange(new Control[] { lblTotalSub, lblTotalDisc, lblTotalTax, lblTotalGrand });
+
             pnlTotalsWrapper.Controls.Add(pnlTotals);
 
             pnlRightItems.Controls.Add(dgvProfileItems); pnlRightItems.Controls.Add(pnlTotalsWrapper); pnlRightItems.Controls.Add(pnlRightHeader);
@@ -580,21 +800,25 @@ namespace SJ_PC_Store_SIMS.Views
 
             lblTotalSub.Text = $"Sub Total: {_selectedPO.SubTotal:C2}";
             lblTotalDisc.Text = $"Discount Applied: -{_selectedPO.Discount:C2}";
+            lblTotalTax.Text = $"Tax Applied: {_selectedPO.Tax:C2}";
             lblTotalGrand.Text = $"GRAND TOTAL: {_selectedPO.GrandTotal:C2}";
+            
+            dgvProfileItems.Rows.Clear();
+            
+            foreach (var item in _selectedPO.Items)
+            {
+                var dbItem = _dbItems.FirstOrDefault(i => i.ItemCode == item.ItemCode);
+                string cond = dbItem?.ItemCondition ?? "Brand New";
+                dgvProfileItems.Rows.Add(item.ItemCode, item.Description, cond, item.Quantity, item.UnitPrice, item.TotalAmount);
+            }
+            
+            // Adjust card heights after all content is loaded
+            AdjustCardHeight(cardSupplier);
+            AdjustCardHeight(cardSchedule);
+            AdjustCardHeight(cardAttach);
+            AdjustCardHeight(cardAudit);
 
-                  dgvProfileItems.Rows.Clear();
-                     foreach (var item in _selectedPO.Items)
-                     {
-                         var dbItem = _dbItems.FirstOrDefault(i => i.ItemCode == item.ItemCode);
-                         string cond = dbItem?.ItemCondition ?? "Brand New";
-                         dgvProfileItems.Rows.Add(item.ItemCode, item.Description, cond, item.Quantity, item.UnitPrice, item.TotalAmount);
-                     }
-
-                     // Adjust card heights after all content is loaded
-                     AdjustCardHeight(cardSupplier);
-                     AdjustCardHeight(cardSchedule);
-                     AdjustCardHeight(cardAttach);
-                     AdjustCardHeight(cardAudit);
+            LoadAttachments();
         }
 
         private void AdjustCardHeight(RoundedPanel card)
@@ -666,12 +890,14 @@ namespace SJ_PC_Store_SIMS.Views
             Control w1 = CreateInputWrapper(cmbCreateSupplier, 350); w1.Location = new Point(25, 45); _comboInputs.Add(cmbCreateSupplier);
 
             Label l2 = new Label { Text = "Order Date", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(400, 20) };
-            dtpOrderDate = new DateTimePicker { Font = new Font("Segoe UI", 11F), Format = DateTimePickerFormat.Short };
-            Control w2 = CreateInputWrapper(dtpOrderDate, 180); w2.Location = new Point(400, 45); w2.BackColor = Color.Transparent; // Borderless DatePicker
+            dtpOrderDate = new ThemedDatePicker();
+            Control w2 = CreateInputWrapper(dtpOrderDate, 180);
+            w2.Location = new Point(400, 45);
 
             Label l3 = new Label { Text = "Expected Delivery", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(600, 20) };
-            dtpExpectedDate = new DateTimePicker { Font = new Font("Segoe UI", 11F), Format = DateTimePickerFormat.Short };
-            Control w3 = CreateInputWrapper(dtpExpectedDate, 180); w3.Location = new Point(600, 45); w3.BackColor = Color.Transparent;
+            dtpExpectedDate = new ThemedDatePicker();
+            Control w3 = CreateInputWrapper(dtpExpectedDate, 180);
+            w3.Location = new Point(600, 45);
 
             Label l4 = new Label { Text = "Remarks / Terms", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(25, 95) };
             txtCreateRemarks = new TextBox { Font = new Font("Segoe UI", 11F), Multiline = true, ScrollBars = ScrollBars.Vertical, BorderStyle = BorderStyle.None };
@@ -1248,26 +1474,25 @@ namespace SJ_PC_Store_SIMS.Views
             g.DrawString($"Phone: {_selectedPO.ContactNumber}", fNormal, Brushes.Black, 50, y); y += 40;
 
             g.FillRectangle(Brushes.DarkBlue, 50, y, 720, 30);
-            g.DrawString("ITEM CODE", fBold, Brushes.White, 60, y + 7);
-            g.DrawString("DESCRIPTION", fBold, Brushes.White, 200, y + 7);
-            g.DrawString("QTY", fBold, Brushes.White, 500, y + 7);
-            g.DrawString("UNIT PRICE", fBold, Brushes.White, 560, y + 7);
-            g.DrawString("TOTAL", fBold, Brushes.White, 680, y + 7);
+            g.DrawString("ITEM NAME", fBold, Brushes.White, 60, y + 7);
+            g.DrawString("QTY", fBold, Brushes.White, 420, y + 7);
+            g.DrawString("UNIT PRICE", fBold, Brushes.White, 500, y + 7);
+            g.DrawString("TOTAL", fBold, Brushes.White, 620, y + 7);
             y += 40;
 
             foreach (var item in _selectedPO.Items)
             {
-                g.DrawString(item.ItemCode, fNormal, Brushes.Black, 60, y);
-                g.DrawString(item.Description.Length > 30 ? item.Description.Substring(0, 30) + "..." : item.Description, fNormal, Brushes.Black, 200, y);
-                g.DrawString(item.Quantity.ToString(), fNormal, Brushes.Black, 500, y);
-                g.DrawString(item.UnitPrice.ToString("N2"), fNormal, Brushes.Black, 560, y);
-                g.DrawString(item.TotalAmount.ToString("N2"), fNormal, Brushes.Black, 680, y);
+                g.DrawString(item.Description.Length > 30 ? item.Description.Substring(0, 30) + "..." : item.Description, fNormal, Brushes.Black, 60, y);
+                g.DrawString(item.Quantity.ToString(), fNormal, Brushes.Black, 420, y);
+                g.DrawString(item.UnitPrice.ToString("N2"), fNormal, Brushes.Black, 500, y);
+                g.DrawString(item.TotalAmount.ToString("N2"), fNormal, Brushes.Black, 620, y);
                 y += 30;
             }
             g.DrawLine(Pens.Gray, 50, y, 770, y); y += 20;
 
             g.DrawString("Subtotal:", fNormal, Brushes.DimGray, 560, y); g.DrawString(_selectedPO.SubTotal.ToString("C2"), fNormal, Brushes.Black, 680, y); y += 25;
             g.DrawString("Discount:", fNormal, Brushes.DimGray, 560, y); g.DrawString($"-{_selectedPO.Discount:C2}", fNormal, Brushes.Red, 680, y); y += 25;
+            g.DrawString("Tax:", fNormal, Brushes.DimGray, 560, y); g.DrawString($"{_selectedPO.Tax:C2}", fNormal, Brushes.Black, 680, y); y += 25;
             g.DrawString("GRAND TOTAL:", fSubTitle, Brushes.DarkBlue, 520, y); g.DrawString(_selectedPO.GrandTotal.ToString("C2"), fSubTitle, Brushes.Black, 680, y);
 
             y += 50;
@@ -1297,6 +1522,92 @@ namespace SJ_PC_Store_SIMS.Views
             {
                 ShowToast("Purchase Order not found or access denied.", false);
             }
+        }
+
+        private void LoadAttachments()
+        {
+            if (flpAttachments == null || _selectedPO == null) return;
+            flpAttachments.Controls.Clear();
+            var attachments = _attachController.GetAttachments(_selectedPO.PO_Number);
+            foreach (var att in attachments)
+            {
+                Panel row = new Panel { Width = flpAttachments.Width - SystemInformation.VerticalScrollBarWidth - 5, Height = 30 };
+
+                // File name label (clickable)
+                int maxLabelWidth = row.Width - 30 - 10; // 30 for trash button, 10 for padding
+                Label lblFile = new Label
+                {
+                    Font = new Font("Segoe UI", 9.5F),
+                    ForeColor = Color.FromArgb(59, 130, 246),
+                    Cursor = Cursors.Hand,
+                    AutoSize = false,
+                    Width = maxLabelWidth,
+                    Height = 20,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Location = new Point(5, 6)
+                };
+
+                lblFile.Text = TruncateText(att.FileName, lblFile.Font, maxLabelWidth);
+
+                lblFile.Click += (s, e) =>
+                {
+                    try { System.Diagnostics.Process.Start(att.FilePath); } catch { ShowToast("Cannot open file.", false); }
+                };
+                lblFile.MouseEnter += (s, e) => { lblFile.Font = new Font(lblFile.Font, FontStyle.Underline | FontStyle.Bold); };
+                lblFile.MouseLeave += (s, e) => { lblFile.Font = new Font(lblFile.Font, FontStyle.Regular); };
+
+                // Delete button (trash icon)
+                IconButton btnDel = new IconButton
+                {
+                    IconChar = IconChar.Trash,
+                    IconSize = 16,
+                    Size = new Size(25, 25),
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand,
+                    BackColor = Color.Transparent,
+                    IconColor = Color.FromArgb(239, 68, 68),
+                    ForeColor = Color.FromArgb(239, 68, 68),
+                    Location = new Point(row.Width - 30, 3)
+                };
+                btnDel.FlatAppearance.BorderSize = 0;
+                btnDel.Click += (s, e) =>
+                {
+                    if (_attachController.DeleteAttachment(att.AttachmentID))
+                    {
+                        LogAndNotify("Attachment Deleted", att.FileName, true);
+                        LoadAttachments();
+                    }
+                };
+
+                row.Controls.Add(lblFile);
+                row.Controls.Add(btnDel);
+                flpAttachments.Controls.Add(row);
+            }
+
+            // 💡 Right here: after all rows are added, adjust the panel height
+            flpAttachments.Height = flpAttachments.Controls.Count * 35 + 5;
+
+            AdjustCardHeight(cardAttach);
+        }
+
+        private string TruncateText(string text, Font font, int maxWidth)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            if (TextRenderer.MeasureText(text, font).Width <= maxWidth)
+                return text;
+
+            string ellipsis = "...";
+            int ellipsisWidth = TextRenderer.MeasureText(ellipsis, font).Width;
+            int allowedWidth = maxWidth - ellipsisWidth;
+            if (allowedWidth <= 0) return ellipsis;
+
+            for (int i = text.Length - 1; i > 0; i--)
+            {
+                string trimmed = text.Substring(0, i);
+                if (TextRenderer.MeasureText(trimmed, font).Width <= allowedWidth)
+                    return trimmed + ellipsis;
+            }
+            return ellipsis;
         }
 
         // =========================================================================
@@ -1345,25 +1656,15 @@ namespace SJ_PC_Store_SIMS.Views
 
             if (btnAddRow != null)
             {
-                btnAddRow.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark; btnAddRow.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White; btnAddRow.FlatAppearance.MouseOverBackColor = UITheme.IsDarkMode ? Color.FromArgb(255, 230, 120) : UITheme.SecondaryDark;
+                btnAddRow.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark; btnAddRow.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White; btnAddRow.FlatAppearance.MouseOverBackColor = UITheme.IsDarkMode ? Color.FromArgb(255, 230, 120) : UITheme.SecondaryDark; btnAddRow.IconColor = btnAddRow.ForeColor;
             }
 
             if (dgvPOList != null)
             {
                 dgvPOList.BackgroundColor = UITheme.CurrentPanel;
 
-                // Hide the grid lines by matching the background color
-                dgvPOList.GridColor = UITheme.CurrentPanel;
-
-                // THE REAL FIX: Set this to 'None'. 
-                // Previously, 'SingleHorizontal' was forcing the horizontal borders to reappear every time the theme loaded.
-                dgvPOList.CellBorderStyle = DataGridViewCellBorderStyle.None;
-
-                // 1. THIS IS THE KILL SWITCH. It makes WinForms' default gridlines invisible.
-                dgvPOList.GridColor = UITheme.CurrentPanel;
-
-                // 2. Turn off native borders entirely
-                dgvPOList.CellBorderStyle = DataGridViewCellBorderStyle.None;
+                dgvPOList.GridColor = UITheme.CurrentBorder;
+                dgvPOList.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
 
                 dgvPOList.DefaultCellStyle.BackColor = UITheme.CurrentPanel;
                 dgvPOList.DefaultCellStyle.ForeColor = UITheme.CurrentText;
@@ -1393,6 +1694,15 @@ namespace SJ_PC_Store_SIMS.Views
                     ? Color.FromArgb(34, 32, 38)
                     : Color.FromArgb(226, 230, 234);
             }
+
+            if (btnAttach != null)
+            {
+                btnAttach.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark;
+                btnAttach.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White;
+            }
+
+            if (dtpOrderDate != null) dtpOrderDate.ApplyTheme(UITheme.IsDarkMode);
+            if (dtpExpectedDate != null) dtpExpectedDate.ApplyTheme(UITheme.IsDarkMode);
         }
     }
 }
