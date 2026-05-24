@@ -112,6 +112,7 @@ namespace SJ_PC_Store_SIMS.Views
             btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
             btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView(_currentUser.UserID)); SetActiveNavButton(btnInv); };
             btnData.Click += (s, e) => { lblPageTitle.Text = "Data Management (Suppliers)"; LoadUserControl(new DataManagementView(_currentUser.UserID)); SetActiveNavButton(btnData); };
+            btnProc.Click += (s, e) => { lblPageTitle.Text = "Procurement Management"; LoadUserControl(new ProcurementView(_currentUser.UserID)); SetActiveNavButton(btnProc); };
 
             _adminOnlyControls.AddRange(new Control[] { btnInv, btnProc, btnData, btnReports, btnUsers, btnSettings });
             flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings });

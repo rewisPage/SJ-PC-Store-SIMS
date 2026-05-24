@@ -123,10 +123,12 @@ namespace SJ_PC_Store_SIMS.Controllers
         public List<POHistoryModel> GetSupplierPOHistory(string supplierId)
         {
             List<POHistoryModel> history = new List<POHistoryModel>();
-            // Joins PROCUREMENT and counts items dynamically from STOCK_INSTANCE
+
+            // FIXED: Using GrandTotal instead of TotalCost.
+            // FIXED: Summing 'Quantity' from PROCUREMENT_ITEM so it accurately counts items even before Goods Receipt.
             string query = @"
-                SELECT p.PO_Number, p.OrderDate, p.TotalCost, p.Status,
-                       (SELECT COUNT(*) FROM STOCK_INSTANCE s WHERE s.PO_Number = p.PO_Number) AS TotalItems
+                SELECT p.PO_Number, p.OrderDate, p.GrandTotal, p.Status,
+                       (SELECT ISNULL(SUM(Quantity), 0) FROM PROCUREMENT_ITEM pi WHERE pi.PO_Number = p.PO_Number) AS TotalItems
                 FROM PROCUREMENT p
                 WHERE p.SupplierID = @SupID
                 ORDER BY p.OrderDate DESC";
@@ -146,14 +148,14 @@ namespace SJ_PC_Store_SIMS.Controllers
                             {
                                 PO_Number = reader["PO_Number"].ToString(),
                                 OrderDate = Convert.ToDateTime(reader["OrderDate"]),
-                                TotalCost = Convert.ToDecimal(reader["TotalCost"]),
+                                TotalCost = Convert.ToDecimal(reader["GrandTotal"]), // Maps the DB GrandTotal to the Model's TotalCost
                                 Status = reader["Status"].ToString(),
                                 TotalItems = Convert.ToInt32(reader["TotalItems"])
                             });
                         }
                     }
                 }
-                catch { } // Returns empty list if PROCUREMENT table is totally empty, safe failure!
+                catch { } // Safe failure
             }
             return history;
         }

@@ -649,7 +649,76 @@ namespace SJ_PC_Store_SIMS.Views
                 modal.Controls.AddRange(new Control[] { lblPO, pnlSum });
 
                 Button btnGo = new Button { Text = "Go to Procurement", Size = new Size(200, 38), FlatStyle = FlatStyle.Flat, BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark, ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(100, 16) };
-                btnGo.FlatAppearance.BorderSize = 0; btnGo.Click += (s, e) => { ShowToast("Procurement Module pending implementation.", false); modal.Close(); };
+                btnGo.FlatAppearance.BorderSize = 0;
+                btnGo.FlatAppearance.BorderSize = 0;
+                btnGo.Click += (s, e) => {
+                    Form parent = this.FindForm();
+                    if (parent != null)
+                    {
+                        ProcurementView procView = null;
+
+                        // 1. Helper function to deep-search the Dashboard for the Procurement screen
+                        Func<ProcurementView> SearchForView = () => {
+                            Stack<Control> stack = new Stack<Control>();
+                            stack.Push(parent);
+                            while (stack.Count > 0)
+                            {
+                                Control current = stack.Pop();
+                                if (current is ProcurementView pv) return pv;
+                                foreach (Control child in current.Controls) stack.Push(child);
+                            }
+                            return null;
+                        };
+
+                        procView = SearchForView();
+
+                        // 2. LAZY-LOAD BYPASS: If the module isn't loaded, trick the Dashboard into loading it!
+                        if (procView == null)
+                        {
+                            Stack<Control> btnStack = new Stack<Control>();
+                            btnStack.Push(parent);
+                            while (btnStack.Count > 0)
+                            {
+                                Control current = btnStack.Pop();
+
+                                // Look for the Sidebar button (It inherits from Button and contains "Procurement")
+                                if (current is Button btn && btn.Text.Contains("Procurement"))
+                                {
+                                    btn.PerformClick(); // Simulate a physical mouse click on the sidebar
+                                    Application.DoEvents(); // Force the Dashboard to instantly render the new screen
+                                    break;
+                                }
+                                foreach (Control child in current.Controls) btnStack.Push(child);
+                            }
+
+                            // Search again now that the Dashboard has officially built the screen
+                            procView = SearchForView();
+                        }
+
+                        // 3. Send the command to open the exact PO
+                        if (procView != null)
+                        {
+                            // IMPORTANT: Replace 'poNumberFromRow' with the actual variable holding your clicked PO Number!
+                            // (e.g., string poNumberFromRow = dgvPOHistory.Rows[e.RowIndex].Cells[0].Value.ToString(); )
+                            if (dgvPOHistory.CurrentRow != null)
+                            {
+                                string selectedPO = dgvPOHistory.CurrentRow.Cells[0].Value.ToString();
+                                procView.OpenExternalPO(selectedPO);
+                            }
+                            else
+                            {
+                                ShowToast("Please select a procurement record from the history to view.", false);
+                            }
+                        }
+                        else
+                        {
+                            ShowToast("Could not auto-load Procurement. Please click the sidebar manually.", false);
+                        }
+                    }
+                    modal.Close();
+                };
+
+
                 pnlFooter.Controls.Add(btnGo);
             }
             else // Create & Edit
