@@ -705,6 +705,7 @@ namespace SJ_PC_Store_SIMS.Views
                                 string selectedPO = dgvPOHistory.CurrentRow.Cells[0].Value.ToString();
                                 procView.OpenExternalPO(selectedPO);
                             }
+
                             else
                             {
                                 ShowToast("Please select a procurement record from the history to view.", false);
