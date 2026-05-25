@@ -10,14 +10,15 @@ namespace SJ_PC_Store_SIMS.Controllers
     public class AttachmentController
     {
         // Saves file to disk and inserts record into DB
-        public bool UploadAttachment(string poNumber, string sourceFilePath, string uploadedBy)
+        public bool UploadAttachment(string poNumber, string sourceFilePath, string uploadedBy, string transactionId = null)
         {
+            string identifier = transactionId ?? poNumber;
             string fileName = Path.GetFileName(sourceFilePath);
-            string targetFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Attachments", poNumber);
+            string targetFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "Attachments", identifier);
             Directory.CreateDirectory(targetFolder);
             string targetPath = Path.Combine(targetFolder, fileName);
 
-            // If file already exists, rename it (add a timestamp)
             if (File.Exists(targetPath))
             {
                 string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
@@ -31,11 +32,15 @@ namespace SJ_PC_Store_SIMS.Controllers
             using (var conn = DatabaseHelper.GetConnection())
             {
                 conn.Open();
-                string query = @"INSERT INTO ATTACHMENTS (PO_Number, FileName, FilePath, UploadedBy, UploadedDate)
-                                 VALUES (@PO_Number, @FileName, @FilePath, @UploadedBy, GETDATE())";
+                string query = @"INSERT INTO ATTACHMENTS (PO_Number, TransactionID, FileName, 
+            FilePath, UploadedBy, UploadedDate) 
+            VALUES (@PO_Number, @TransactionID, @FileName, @FilePath, @UploadedBy, GETDATE())";
                 using (var cmd = new SqlCommand(query, conn))
                 {
-                    cmd.Parameters.AddWithValue("@PO_Number", poNumber);
+                    cmd.Parameters.AddWithValue("@PO_Number",
+                        string.IsNullOrEmpty(poNumber) ? DBNull.Value : (object)poNumber);
+                    cmd.Parameters.AddWithValue("@TransactionID",
+                        string.IsNullOrEmpty(transactionId) ? DBNull.Value : (object)transactionId);
                     cmd.Parameters.AddWithValue("@FileName", fileName);
                     cmd.Parameters.AddWithValue("@FilePath", targetPath);
                     cmd.Parameters.AddWithValue("@UploadedBy", uploadedBy);
@@ -105,6 +110,36 @@ namespace SJ_PC_Store_SIMS.Controllers
                     return rows > 0;
                 }
             }
+        }
+
+        public List<AttachmentModel> GetAttachmentsByTransaction(string transactionId)
+        {
+            var list = new List<AttachmentModel>();
+            using (var conn = DatabaseHelper.GetConnection())
+            {
+                conn.Open();
+                string query = "SELECT * FROM ATTACHMENTS WHERE TransactionID = @TID ORDER BY UploadedDate DESC";
+                using (var cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@TID", transactionId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            list.Add(new AttachmentModel
+                            {
+                                AttachmentID = Convert.ToInt32(reader["AttachmentID"]),
+                                PO_Number = reader["PO_Number"]?.ToString(),
+                                FileName = reader["FileName"].ToString(),
+                                FilePath = reader["FilePath"].ToString(),
+                                UploadedBy = reader["UploadedBy"].ToString(),
+                                UploadedDate = Convert.ToDateTime(reader["UploadedDate"])
+                            });
+                        }
+                    }
+                }
+            }
+            return list;
         }
     }
 }
