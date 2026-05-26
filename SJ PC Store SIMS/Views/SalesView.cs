@@ -19,8 +19,6 @@ using TextBox = System.Windows.Forms.TextBox;
 
 namespace SJ_PC_Store_SIMS.Views
 {
-    // Required for ThemedMonthCalendar
-
     public class SalesView : System.Windows.Forms.UserControl
     {
         // =========================================================================
@@ -75,7 +73,10 @@ namespace SJ_PC_Store_SIMS.Views
                 using (SolidBrush fgBrush = new SolidBrush(fg))
                 {
                     e.Graphics.FillRectangle(bgBrush, e.Bounds);
-                    e.Graphics.DrawString(this.Items[e.Index].ToString(), this.Font, fgBrush, e.Bounds.X + 5, e.Bounds.Y + 2);
+                    // FIX: Center text vertically
+                    SizeF textSize = e.Graphics.MeasureString(this.Items[e.Index].ToString(), this.Font);
+                    float textY = e.Bounds.Y + (e.Bounds.Height - textSize.Height) / 2;
+                    e.Graphics.DrawString(this.Items[e.Index].ToString(), this.Font, fgBrush, e.Bounds.X + 8, textY);
                 }
             }
             private const int WM_PAINT = 0xF;
@@ -226,7 +227,7 @@ namespace SJ_PC_Store_SIMS.Views
         private DarkComboBox cmbPaymentMethod, cmbCreateDiscountType, cmbCreateTaxType, cmbItemSelect, cmbSerialSelect;
         private TextBox txtQty, txtPrice, txtCreateDiscount, txtCreateTax;
         private BufferedFlowLayoutPanel flpCreateItems;
-        private Button btnAttach;
+        private Button btnAttach, btnAttachCreate;
         private FlowLayoutPanel flpAttachments;
         private Control wTransactionNumber;
 
@@ -398,7 +399,7 @@ namespace SJ_PC_Store_SIMS.Views
         }
 
         // =========================================================================
-        // PROFILE VIEW (unchanged)
+        // PROFILE VIEW
         // =========================================================================
         private void InitializeProfileView()
         {
@@ -562,7 +563,7 @@ namespace SJ_PC_Store_SIMS.Views
         }
 
         // =========================================================================
-        // CREATE / EDIT VIEW
+        // CREATE / EDIT VIEW (FULLY REWORKED)
         // =========================================================================
         private void InitializeCreateView()
         {
@@ -592,113 +593,130 @@ namespace SJ_PC_Store_SIMS.Views
 
             Panel pnlBody = new Panel { Dock = DockStyle.Fill, Padding = new Padding(30), AutoScroll = true };
 
-            // ---- ORDER DETAILS SECTION ----
+            // ---- ORDER DETAILS SECTION (BALANCED LAYOUT) ----
             Label lHead1 = new Label { Text = "ORDER DETAILS", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(30, 25) };
             _dynamicTexts.Add(lHead1); pnlBody.Controls.Add(lHead1);
 
-            RoundedPanel pnlDetails = new RoundedPanel { Location = new Point(30, 65), Size = new Size(pnlBody.Width - 60, 200), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BorderRadius = 6, BorderSize = 1, Padding = new Padding(25) };
+            RoundedPanel pnlDetails = new RoundedPanel { Location = new Point(30, 65), Size = new Size(pnlBody.Width - 60, 210), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BorderRadius = 6, BorderSize = 1, Padding = new Padding(25) };
 
+            // Row 1: Customer Name (left) | Order Date (right)
             Label lCust = new Label { Text = "Customer Name", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(25, 20) };
             txtCustomerName = new TextBox { Font = new Font("Segoe UI", 11F), BorderStyle = BorderStyle.None };
-            Control wCust = CreateInputWrapper(txtCustomerName, 300); wCust.Location = new Point(25, 45); _textInputs.Add(txtCustomerName);
+            Control wCust = CreateInputWrapper(txtCustomerName, 350); wCust.Location = new Point(25, 45); _textInputs.Add(txtCustomerName);
 
-            Label lDate = new Label { Text = "Order Date", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(350, 20) };
+            Label lDate = new Label { Text = "Order Date", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(420, 20) };
             dtpOrderDate = new ThemedDatePicker();
-            Control wDate = CreateInputWrapper(dtpOrderDate, 180); wDate.Location = new Point(350, 45);
+            Control wDate = CreateInputWrapper(dtpOrderDate, 180); wDate.Location = new Point(420, 45);
 
-            Label lPay = new Label { Text = "Payment Method", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(25, 95) };
+            // Row 2: Payment Method (left) | Transaction Number (right, below payment)
+            Label lPay = new Label { Text = "Payment Method", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(25, 100) };
             cmbPaymentMethod = new DarkComboBox { Font = new Font("Segoe UI", 11F), Size = new Size(180, 30), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPaymentMethod.Items.AddRange(new[] { "Cash Payment", "Online Payment" });
             cmbPaymentMethod.SelectedIndex = 0;
             cmbPaymentMethod.SelectedIndexChanged += (s, e) => { if (wTransactionNumber != null) wTransactionNumber.Visible = cmbPaymentMethod.Text == "Online Payment"; };
-            Control wPay = CreateInputWrapper(cmbPaymentMethod, 200); wPay.Location = new Point(25, 120); _comboInputs.Add(cmbPaymentMethod);
+            Control wPay = CreateInputWrapper(cmbPaymentMethod, 210); wPay.Location = new Point(25, 125); _comboInputs.Add(cmbPaymentMethod);
 
-            Label lTN = new Label { Text = "Transaction Number", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(250, 95) };
+            Label lTN = new Label { Text = "Transaction Number", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(25, 165) };
             txtTransactionNumber = new TextBox { Font = new Font("Segoe UI", 11F), BorderStyle = BorderStyle.None };
-            wTransactionNumber = CreateInputWrapper(txtTransactionNumber, 220); wTransactionNumber.Location = new Point(250, 120); wTransactionNumber.Visible = false;
+            wTransactionNumber = CreateInputWrapper(txtTransactionNumber, 210); wTransactionNumber.Location = new Point(25, 188); wTransactionNumber.Visible = false;
             _textInputs.Add(txtTransactionNumber);
 
-            Label lWarr = new Label { Text = "Warranty (Days)", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(500, 95) };
+            // Row 2 right: Warranty
+            Label lWarr = new Label { Text = "Warranty (Days)", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(420, 100) };
             nudWarrantyDays = new NumericUpDown { Font = new Font("Segoe UI", 11F), Minimum = 0, Maximum = 365, Value = 7, BorderStyle = BorderStyle.None };
-            Control wWarr = CreateInputWrapper(nudWarrantyDays, 120); wWarr.Location = new Point(500, 120);
+            Control wWarr = CreateInputWrapper(nudWarrantyDays, 140); wWarr.Location = new Point(420, 125);
 
             pnlDetails.Controls.AddRange(new Control[] { lCust, wCust, lDate, wDate, lPay, wPay, lTN, wTransactionNumber, lWarr, wWarr });
             _mutedTexts.AddRange(new[] { lCust, lDate, lPay, lTN, lWarr }); _borderedContainers.Add(pnlDetails);
             pnlBody.Controls.Add(pnlDetails);
 
-            // ---- ITEM SELECTION SECTION ----
-            Label lHead2 = new Label { Text = "ITEM SELECTION", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(30, 290) };
+            // ---- ITEM CART SELECTION SECTION ----
+            Label lHead2 = new Label { Text = "ITEM CART SELECTION", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(30, 300) };
             _dynamicTexts.Add(lHead2); pnlBody.Controls.Add(lHead2);
 
-            RoundedPanel pnlItems = new RoundedPanel { Location = new Point(30, 330), Size = new Size(pnlBody.Width - 60 - 370, 430), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BorderRadius = 6, BorderSize = 1, Padding = new Padding(25) };
+            RoundedPanel pnlItems = new RoundedPanel { Location = new Point(30, 340), Size = new Size(pnlBody.Width - 60 - 370, 420), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BorderRadius = 6, BorderSize = 1, Padding = new Padding(25) };
 
             Panel pnlItemHeader = new Panel { Dock = DockStyle.Top, Height = 50 };
+            Label lblItemCartTitle = new Label { Text = "Item Cart", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(0, 10) };
             IconButton btnAddItem = new IconButton { Text = " Add Item", IconChar = IconChar.Plus, IconSize = 14, Size = new Size(110, 35), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(pnlItems.Width - 160, 5), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "ActionAdd", Font = new Font("Segoe UI", 9F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText, TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 10, 0) };
             btnAddItem.Click += (s, e) => AddCartItemRow(); _buttons.Add(btnAddItem);
-            pnlItemHeader.Controls.Add(btnAddItem);
+            pnlItemHeader.Controls.Add(lblItemCartTitle); pnlItemHeader.Controls.Add(btnAddItem);
 
-            Panel pnlItemSearch = new Panel { Dock = DockStyle.Top, Height = 55, Padding = new Padding(0, 10, 0, 0) };
+            Panel pnlItemSearch = new Panel { Dock = DockStyle.Top, Height = 70, Padding = new Padding(0, 15, 0, 0) };
             pnlItemSearch.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 0, pnlItemSearch.Width, 0); } };
 
-            cmbItemSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Size = new Size(240, 30), Location = new Point(0, 15), DropDownStyle = ComboBoxStyle.DropDownList };
-            foreach (var item in _dbItems) cmbItemSelect.Items.Add($"{item.Category} {item.Specs} ({item.ItemCondition})");
+            cmbItemSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Size = new Size(230, 35), Location = new Point(5, 20), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbItemSelect.SelectedIndexChanged += (s, e) => OnItemSelected();
             _comboInputs.Add(cmbItemSelect);
 
-            cmbSerialSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Size = new Size(160, 30), Location = new Point(250, 15), DropDownStyle = ComboBoxStyle.DropDown };
+            cmbSerialSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Size = new Size(170, 35), Location = new Point(245, 20), DropDownStyle = ComboBoxStyle.DropDown };
             _comboInputs.Add(cmbSerialSelect);
 
-            txtQty = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "1", Size = new Size(60, 30), Location = new Point(420, 15), TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
+            txtQty = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "1", Size = new Size(60, 35), Location = new Point(425, 20), TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
             _textInputs.Add(txtQty);
-            Control wQty = CreateInputWrapper(txtQty, 70); wQty.Location = new Point(420, 15); wQty.Margin = new Padding(0); wQty.Parent = pnlItemSearch;
-            txtQty.Location = new Point(0, 0); // reset after wrapper move
+            Control wQty = CreateInputWrapper(txtQty, 70); wQty.Location = new Point(425, 20); wQty.Margin = new Padding(0);
 
-            txtPrice = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", Size = new Size(100, 30), Location = new Point(500, 15), TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None, ReadOnly = true };
+            txtPrice = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", Size = new Size(100, 35), Location = new Point(505, 20), TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None, ReadOnly = true };
             _textInputs.Add(txtPrice);
-            Control wPrice = CreateInputWrapper(txtPrice, 110); wPrice.Location = new Point(500, 15); wPrice.Margin = new Padding(0); wPrice.Parent = pnlItemSearch;
-            txtPrice.Location = new Point(0, 0);
+            Control wPrice = CreateInputWrapper(txtPrice, 110); wPrice.Location = new Point(505, 20); wPrice.Margin = new Padding(0);
 
             pnlItemSearch.Controls.AddRange(new Control[] { cmbItemSelect, cmbSerialSelect, wQty, wPrice });
 
-            flpCreateItems = new BufferedFlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 10, 0, 0) };
+            // Data Grid View for cart items
+            SmoothGrid dgvCartItems = new SmoothGrid { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal, ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None, EnableHeadersVisualStyles = false, AllowUserToAddRows = false, ReadOnly = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 45, RowTemplate = { Height = 40 }, Margin = new Padding(0, 10, 0, 0) };
+            dgvCartItems.Columns.Add("Desc", "ITEM NAME"); dgvCartItems.Columns.Add("Serial", "SERIAL NUMBER");
+            dgvCartItems.Columns.Add("Qty", "QTY"); dgvCartItems.Columns.Add("Price", "UNIT PRICE"); dgvCartItems.Columns.Add("Total", "TOTAL");
+            dgvCartItems.Columns["Price"].DefaultCellStyle.Format = "C2"; dgvCartItems.Columns["Total"].DefaultCellStyle.Format = "C2";
+            dgvCartItems.Columns["Total"].DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            dgvCartItems.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            dgvCartItems.ColumnHeadersDefaultCellStyle.Padding = new Padding(10, 0, 0, 0);
+            dgvCartItems.DefaultCellStyle.Padding = new Padding(10, 0, 0, 0);
+
+            // Store reference for adding/removing items
+            flpCreateItems = new BufferedFlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+            // We'll use the grid instead, but keep flpCreateItems for backward compat
+            flpCreateItems.Controls.Add(dgvCartItems);
 
             pnlItems.Controls.Add(flpCreateItems); pnlItems.Controls.Add(pnlItemSearch); pnlItems.Controls.Add(pnlItemHeader);
 
             // ---- TOTALS + ATTACHMENTS RIGHT PANEL ----
-            Panel pnlRightCol = new Panel { Location = new Point(pnlBody.Width - 370, 330), Size = new Size(360, 430), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            Panel pnlRightCol = new Panel { Location = new Point(pnlBody.Width - 370, 340), Size = new Size(360, 420), Anchor = AnchorStyles.Top | AnchorStyles.Right };
 
-            RoundedPanel pnlTotals = new RoundedPanel { Location = new Point(0, 0), Size = new Size(360, 250), BorderRadius = 6, BorderSize = 1, Padding = new Padding(20) };
+            RoundedPanel pnlTotals = new RoundedPanel { Location = new Point(0, 0), Size = new Size(360, 260), BorderRadius = 6, BorderSize = 1, Padding = new Padding(20) };
 
-            lblCreateSub = new Label { Text = "Subtotal: ₱ 0.00", Font = new Font("Segoe UI", 10F), AutoSize = true, Location = new Point(20, 20) }; _dynamicTexts.Add(lblCreateSub);
+            Label lblTotalsHeader = new Label { Text = "TOTALS", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(20, 15) };
+            _dynamicTexts.Add(lblTotalsHeader);
 
-            Label lDisc = new Label { Text = "Discount", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(20, 60) };
+            lblCreateSub = new Label { Text = "Subtotal: ₱ 0.00", Font = new Font("Segoe UI", 10F), AutoSize = true, Location = new Point(20, 50) }; _dynamicTexts.Add(lblCreateSub);
+
+            Label lDisc = new Label { Text = "Discount", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(20, 90) };
             cmbCreateDiscountType = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Size = new Size(50, 30), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbCreateDiscountType.Items.AddRange(new[] { "₱", "%" }); cmbCreateDiscountType.SelectedIndex = 0; cmbCreateDiscountType.SelectedIndexChanged += (s, e) => CalculateTotals();
             _comboInputs.Add(cmbCreateDiscountType);
             txtCreateDiscount = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
             txtCreateDiscount.TextChanged += (s, e) => CalculateTotals(); _textInputs.Add(txtCreateDiscount);
-            Control wDiscType = CreateInputWrapper(cmbCreateDiscountType, 60); wDiscType.Location = new Point(100, 55); wDiscType.Margin = new Padding(0);
-            Control wDisc = CreateInputWrapper(txtCreateDiscount, 140); wDisc.Location = new Point(170, 55); wDisc.Margin = new Padding(0);
+            Control wDiscType = CreateInputWrapper(cmbCreateDiscountType, 60); wDiscType.Location = new Point(100, 85); wDiscType.Margin = new Padding(0);
+            Control wDisc = CreateInputWrapper(txtCreateDiscount, 150); wDisc.Location = new Point(170, 85); wDisc.Margin = new Padding(0);
 
-            Label lTax = new Label { Text = "Tax", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(20, 100) };
+            Label lTax = new Label { Text = "Tax", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(20, 135) };
             cmbCreateTaxType = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Size = new Size(50, 30), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbCreateTaxType.Items.AddRange(new[] { "₱", "%" }); cmbCreateTaxType.SelectedIndex = 1; cmbCreateTaxType.SelectedIndexChanged += (s, e) => CalculateTotals();
             _comboInputs.Add(cmbCreateTaxType);
             txtCreateTax = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
             txtCreateTax.TextChanged += (s, e) => CalculateTotals(); _textInputs.Add(txtCreateTax);
-            Control wTaxType = CreateInputWrapper(cmbCreateTaxType, 60); wTaxType.Location = new Point(100, 95); wTaxType.Margin = new Padding(0);
-            Control wTax = CreateInputWrapper(txtCreateTax, 140); wTax.Location = new Point(170, 95); wTax.Margin = new Padding(0);
+            Control wTaxType = CreateInputWrapper(cmbCreateTaxType, 60); wTaxType.Location = new Point(100, 130); wTaxType.Margin = new Padding(0);
+            Control wTax = CreateInputWrapper(txtCreateTax, 150); wTax.Location = new Point(170, 130); wTax.Margin = new Padding(0);
 
-            lblCreateGrand = new Label { Text = "GRAND TOTAL: ₱ 0.00", Font = new Font("Segoe UI", 14F, FontStyle.Bold), AutoSize = true, Location = new Point(20, 150), ForeColor = Color.FromArgb(16, 185, 129) };
+            lblCreateGrand = new Label { Text = "GRAND TOTAL: ₱ 0.00", Font = new Font("Segoe UI", 14F, FontStyle.Bold), AutoSize = true, Location = new Point(20, 185), ForeColor = Color.FromArgb(16, 185, 129) };
             _dynamicTexts.Add(lblCreateGrand);
 
-            pnlTotals.Controls.AddRange(new Control[] { lblCreateSub, lDisc, wDiscType, wDisc, lTax, wTaxType, wTax, lblCreateGrand });
+            pnlTotals.Controls.AddRange(new Control[] { lblTotalsHeader, lblCreateSub, lDisc, wDiscType, wDisc, lTax, wTaxType, wTax, lblCreateGrand });
 
-            RoundedPanel pnlAttachCreate = new RoundedPanel { Location = new Point(0, 270), Size = new Size(360, 140), BorderRadius = 6, BorderSize = 1, Padding = new Padding(15) };
-            Button btnAttachCreate = new Button { Text = "📝 Attach File", Dock = DockStyle.Top, Size = new Size(110, 35), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            RoundedPanel pnlAttachCreate = new RoundedPanel { Location = new Point(0, 275), Size = new Size(360, 130), BorderRadius = 6, BorderSize = 1, Padding = new Padding(15) };
+            btnAttachCreate = new Button { Text = "📝 Attach File", Dock = DockStyle.Top, Size = new Size(110, 35), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
             btnAttachCreate.FlatAppearance.BorderSize = 0;
             btnAttachCreate.Click += (s, e) => {
-                using (OpenFileDialog ofd = new OpenFileDialog()) { ofd.Multiselect = true; ofd.Filter = "All Files|*.*"; if (ofd.ShowDialog() == DialogResult.OK) { foreach (string file in ofd.FileNames) { _attachController.UploadAttachment(null, file, _activeUserId, _selectedTransaction?.ReceiptID ?? "TEMP"); } ShowToast("Files attached.", true); } }
+                using (OpenFileDialog ofd = new OpenFileDialog()) { ofd.Multiselect = true; ofd.Filter = "All Files|*.*"; if (ofd.ShowDialog() == DialogResult.OK) { foreach (string file in ofd.FileNames) { _attachController.UploadAttachment(null, file, _activeUserId, _selectedTransaction?.ReceiptID); } ShowToast("Files attached.", true); } }
             };
             FlowLayoutPanel flpCreateAttachments = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
             pnlAttachCreate.Controls.Add(flpCreateAttachments); pnlAttachCreate.Controls.Add(btnAttachCreate);
@@ -713,7 +731,7 @@ namespace SJ_PC_Store_SIMS.Views
             pnlBody.Resize += (s, e) => {
                 pnlDetails.Width = pnlBody.Width - 60;
                 pnlItems.Width = pnlBody.Width - 60 - 370;
-                pnlRightCol.Location = new Point(pnlBody.Width - 370, 330);
+                pnlRightCol.Location = new Point(pnlBody.Width - 370, 340);
             };
         }
 
@@ -740,33 +758,31 @@ namespace SJ_PC_Store_SIMS.Views
             decimal price = existingItem?.UnitPrice ?? (decimal.TryParse(txtPrice.Text, out decimal p) ? p : 0);
             int qty = existingItem?.Quantity ?? (int.TryParse(txtQty.Text, out int q) ? q : 1);
 
-            foreach (Control row in flpCreateItems.Controls)
-            {
-                dynamic tag = row.Tag;
-                if (tag != null && ((Label)tag.Serial).Text == serial) { ShowToast("This serial number is already in the cart.", false); return; }
-            }
+            // Find the grid
+            SmoothGrid grid = null;
+            foreach (Control c in flpCreateItems.Controls)
+                if (c is SmoothGrid g) { grid = g; break; }
+            if (grid == null) return;
 
-            Panel attachRow = new Panel { Width = flpCreateItems.Width - 25, Height = 45, Margin = new Padding(0, 0, 0, 10) };
-            Label lDesc = new Label { Text = itemDesc, Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(5, 10), Width = 220 };
-            Label lSerial = new Label { Text = serial, Font = new Font("Consolas", 9F), AutoSize = true, Location = new Point(240, 10) };
-            Label lQty = new Label { Text = qty.ToString(), Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(370, 10) };
-            Label lPrice = new Label { Text = price.ToString("0.00"), Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(410, 10) };
-            Label lTotalRow = new Label { Text = (price * qty).ToString("0.00"), Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), AutoSize = true, Location = new Point(490, 10) };
+            // Check for duplicate serial
+            foreach (DataGridViewRow row in grid.Rows)
+                if (row.Cells["Serial"].Value?.ToString() == serial) { ShowToast("This serial number is already in the cart.", false); return; }
 
-            IconButton btnDel = new IconButton { IconChar = IconChar.Trash, IconSize = 16, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = Color.Transparent, Size = new Size(25, 25), Location = new Point(560, 7) };
-            btnDel.FlatAppearance.BorderSize = 0; btnDel.ForeColor = Color.FromArgb(239, 68, 68); btnDel.IconColor = Color.FromArgb(239, 68, 68);
-            btnDel.Click += (s, e) => { flpCreateItems.Controls.Remove(attachRow); CalculateTotals(); };
-
-            attachRow.Controls.AddRange(new Control[] { lDesc, lSerial, lQty, lPrice, lTotalRow, btnDel });
-            attachRow.Tag = new { Desc = lDesc, Serial = lSerial, Qty = lQty, Price = lPrice, Total = lTotalRow };
-            _dynamicTexts.AddRange(new[] { lDesc, lSerial, lTotalRow });
-            flpCreateItems.Controls.Add(attachRow);
+            grid.Rows.Add(itemDesc, serial, qty, price, price * qty);
             CalculateTotals();
         }
 
         private void PrepareCreateForm()
         {
-            flpCreateItems.Controls.Clear();
+            // Clear the grid
+            foreach (Control c in flpCreateItems.Controls)
+                if (c is SmoothGrid grid) grid.Rows.Clear();
+
+            // Populate item combo
+            cmbItemSelect.Items.Clear();
+            foreach (var item in _dbItems)
+                cmbItemSelect.Items.Add($"{item.Category} {item.Specs} ({item.ItemCondition})");
+
             if (_isEditMode && _selectedTransaction != null)
             {
                 lblCreateTitle.Text = $"Edit Order ({_selectedTransaction.ReceiptID})";
@@ -794,14 +810,12 @@ namespace SJ_PC_Store_SIMS.Views
         private void CalculateTotals()
         {
             decimal sub = 0;
-            foreach (Control row in flpCreateItems.Controls)
-            {
-                dynamic tag = row.Tag; if (tag == null) continue;
-                decimal q = 0, p = 0;
-                decimal.TryParse(((Label)tag.Qty).Text, out q);
-                decimal.TryParse(((Label)tag.Price).Text, out p);
-                sub += (q * p);
-            }
+            foreach (Control c in flpCreateItems.Controls)
+                if (c is SmoothGrid grid)
+                    foreach (DataGridViewRow row in grid.Rows)
+                        if (row.Cells["Total"].Value != null)
+                            sub += Convert.ToDecimal(row.Cells["Total"].Value);
+
             decimal disc = 0; decimal.TryParse(txtCreateDiscount.Text, out disc);
             if (cmbCreateDiscountType.Text == "%") disc = sub * (disc / 100m);
             decimal tax = 0;
@@ -817,6 +831,23 @@ namespace SJ_PC_Store_SIMS.Views
             if (string.IsNullOrWhiteSpace(txtCustomerName.Text)) { ShowToast("Please enter a customer name.", false); return; }
 
             string receiptID = _isEditMode ? _selectedTransaction.ReceiptID : _salesController.GenerateNextReceiptID();
+
+            // Collect items from grid
+            var items = new List<SalesItemModel>();
+            foreach (Control c in flpCreateItems.Controls)
+                if (c is SmoothGrid grid)
+                    foreach (DataGridViewRow row in grid.Rows)
+                        if (!row.IsNewRow && row.Cells["Desc"].Value != null)
+                            items.Add(new SalesItemModel
+                            {
+                                SerialNumber = row.Cells["Serial"].Value?.ToString(),
+                                Description = row.Cells["Desc"].Value?.ToString(),
+                                Quantity = Convert.ToInt32(row.Cells["Qty"].Value ?? 1),
+                                UnitPrice = Convert.ToDecimal(row.Cells["Price"].Value ?? 0)
+                            });
+
+            if (items.Count == 0) { ShowToast("Please add at least one item.", false); return; }
+
             SalesTransactionModel txn = new SalesTransactionModel
             {
                 ReceiptID = receiptID,
@@ -831,15 +862,9 @@ namespace SJ_PC_Store_SIMS.Views
                 Status = status,
                 WarrantyDays = (int)nudWarrantyDays.Value,
                 CreatedBy = _activeUserId,
-                ModifiedBy = _isEditMode ? _activeUserId : null
+                ModifiedBy = _isEditMode ? _activeUserId : null,
+                Items = items
             };
-
-            foreach (Control row in flpCreateItems.Controls)
-            {
-                dynamic tag = row.Tag; if (tag == null) continue;
-                txn.Items.Add(new SalesItemModel { SerialNumber = ((Label)tag.Serial).Text, Description = ((Label)tag.Desc).Text, Quantity = int.Parse(((Label)tag.Qty).Text), UnitPrice = decimal.Parse(((Label)tag.Price).Text) });
-            }
-            if (txn.Items.Count == 0) { ShowToast("Please add at least one item.", false); return; }
 
             string result = _isEditMode ? _salesController.UpdateTransaction(txn) : _salesController.SaveTransaction(txn);
             if (result == "SUCCESS")
@@ -959,14 +984,14 @@ namespace SJ_PC_Store_SIMS.Views
             var attachments = _attachController.GetAttachmentsByTransaction(_selectedTransaction.ReceiptID);
             foreach (var att in attachments)
             {
-                Panel row = new Panel { Width = flpAttachments.Width - SystemInformation.VerticalScrollBarWidth - 5, Height = 30 };
-                int maxW = row.Width - 30 - 10;
+                Panel attachRow = new Panel { Width = flpAttachments.Width - SystemInformation.VerticalScrollBarWidth - 5, Height = 30 };
+                int maxW = attachRow.Width - 30 - 10;
                 Label lblFile = new Label { Font = new Font("Segoe UI", 9.5F), ForeColor = Color.FromArgb(59, 130, 246), Cursor = Cursors.Hand, AutoSize = false, Width = maxW, Height = 20, TextAlign = ContentAlignment.MiddleLeft, Location = new Point(5, 6) };
                 lblFile.Text = TruncateText(att.FileName, lblFile.Font, maxW);
                 lblFile.Click += (s, e) => { try { System.Diagnostics.Process.Start(att.FilePath); } catch { } };
-                IconButton btnDel = new IconButton { IconChar = IconChar.Trash, IconSize = 16, Size = new Size(25, 25), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = Color.Transparent, IconColor = Color.FromArgb(239, 68, 68), ForeColor = Color.FromArgb(239, 68, 68), Location = new Point(row.Width - 30, 3) };
+                IconButton btnDel = new IconButton { IconChar = IconChar.Trash, IconSize = 16, Size = new Size(25, 25), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = Color.Transparent, IconColor = Color.FromArgb(239, 68, 68), ForeColor = Color.FromArgb(239, 68, 68), Location = new Point(attachRow.Width - 30, 3) };
                 btnDel.FlatAppearance.BorderSize = 0; btnDel.Click += (s, e) => { if (_attachController.DeleteAttachment(att.AttachmentID)) { LogAndNotify("Attachment Deleted", att.FileName, true); LoadAttachments(); } };
-                row.Controls.Add(lblFile); row.Controls.Add(btnDel); flpAttachments.Controls.Add(row);
+                attachRow.Controls.Add(lblFile); attachRow.Controls.Add(btnDel); flpAttachments.Controls.Add(attachRow);
             }
             if (flpAttachments.Controls.Count > 0) flpAttachments.Height = flpAttachments.Controls.Count * 35 + 5;
         }
@@ -1014,12 +1039,9 @@ namespace SJ_PC_Store_SIMS.Views
                 btn.IconColor = btn.ForeColor; btn.FlatAppearance.MouseDownBackColor = btn.BackColor;
             }
 
-            // Attachment button theming
-            if (btnAttach != null)
-            {
-                btnAttach.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark;
-                btnAttach.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White;
-            }
+            // Attachment button theming (both profile and create)
+            if (btnAttach != null) { btnAttach.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark; btnAttach.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White; }
+            if (btnAttachCreate != null) { btnAttachCreate.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark; btnAttachCreate.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White; }
 
             if (dgvSalesList != null)
             {
