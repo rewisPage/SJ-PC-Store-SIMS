@@ -12,7 +12,7 @@ namespace SJ_PC_Store_SIMS.Controllers
         // Saves file to disk and inserts record into DB
         public bool UploadAttachment(string poNumber, string sourceFilePath, string uploadedBy, string transactionId = null)
         {
-            string identifier = transactionId ?? poNumber;
+            string identifier = transactionId ?? poNumber ?? "TEMP";
             string fileName = Path.GetFileName(sourceFilePath);
             string targetFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "Attachments", identifier);
