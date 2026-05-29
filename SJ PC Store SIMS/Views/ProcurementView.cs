@@ -437,8 +437,31 @@ namespace SJ_PC_Store_SIMS.Views
         // =========================================================================
         private void InitializeLandingView()
         {
-            RoundedPanel container = new RoundedPanel { Dock = DockStyle.Fill, BorderRadius = 6, BorderSize = 1, Padding = new Padding(1) };
-            _borderedContainers.Add(container);
+            Panel pnlBody = new Panel { Dock = DockStyle.Fill, Padding = new Padding(25) };
+
+            // 1. The Toolbar Card (Top)
+            RoundedPanel pnlToolbar = new RoundedPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 75,
+                BorderRadius = 6,
+                BorderSize = 1,
+            };
+
+            _borderedContainers.Add(pnlToolbar);
+
+            // 2. The 25-pixel Gap
+            Panel pnlSpacer = new Panel { Dock = DockStyle.Top, Height = 25 };
+
+            // 3. The Grid Card (Fills the rest of the screen)
+            RoundedPanel pnlGridContainer = new RoundedPanel
+            {
+                Dock = DockStyle.Fill,
+                BorderRadius = 6,
+                BorderSize = 1,
+                Padding = new Padding(1)
+            };
+            _borderedContainers.Add(pnlGridContainer);
 
             SmoothPanel toolbar = new SmoothPanel { Dock = DockStyle.Top, Height = 80, BackColor = Color.Transparent, Padding = new Padding(25, 20, 25, 20) };
             toolbar.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 79, toolbar.Width, 79); } };
@@ -469,8 +492,8 @@ namespace SJ_PC_Store_SIMS.Views
                 RowHeadersVisible = false, AutoSizeColumnsMode = 
                 DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 60, 
                 RowTemplate = { Height = 60 }, Cursor = Cursors.Hand };
-            dgvPOList.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvPOList.GridColor = UITheme.CurrentBorder;
+
+
             dgvPOList.Columns.Add("PO", "PO NUMBER"); dgvPOList.Columns.Add("Sup", "SUPPLIER NAME"); dgvPOList.Columns.Add("Date", "ORDER DATE"); dgvPOList.Columns.Add("Total", "TOTAL AMOUNT"); dgvPOList.Columns.Add("Status", "STATUS");
 
             dgvPOList.Columns["PO"].DefaultCellStyle.Font = new Font("Consolas", 11F, FontStyle.Bold);
@@ -551,8 +574,18 @@ namespace SJ_PC_Store_SIMS.Views
                 }
             };
 
-            container.Controls.Add(dgvPOList); container.Controls.Add(toolbar);
-            pnlLanding.Controls.Add(container);
+            
+
+            pnlGridContainer.Controls.Add(dgvPOList);
+
+            pnlToolbar.Controls.Add(toolbar);
+
+            
+            pnlBody.Controls.Add(pnlGridContainer);
+            pnlBody.Controls.Add(pnlSpacer);
+            pnlBody.Controls.Add(pnlToolbar);
+
+            pnlLanding.Controls.Add(pnlBody);
         }
 
         // =========================================================================
