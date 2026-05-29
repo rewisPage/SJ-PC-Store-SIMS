@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using Microsoft.Data.SqlClient;
-using SJ_PC_Store_SIMS.Utils;
+﻿using Microsoft.Data.SqlClient;
 using SJ_PC_Store_SIMS.Models;
+using SJ_PC_Store_SIMS.Utils;
+using System.Data;
 
 namespace SJ_PC_Store_SIMS.Controllers
 {
@@ -200,8 +198,28 @@ namespace SJ_PC_Store_SIMS.Controllers
         public DataTable GetPhysicalStock()
         {
             DataTable dt = new DataTable();
-            string query = "SELECT SerialNumber, ItemCode, PO_Number, SupplierID, Status FROM STOCK_INSTANCE";
-            using (SqlConnection conn = DatabaseHelper.GetConnection()) { try { SqlDataAdapter adapter = new SqlDataAdapter(query, conn); adapter.Fill(dt); } catch { } }
+
+            // CHANGED: Added a LEFT JOIN to the PROCUREMENT table. 
+            // This traces the PO_Number to guarantee we fetch the correct SupplierID!
+            string query = @"
+                        SELECT 
+                            s.SerialNumber, 
+                            s.ItemCode, 
+                            ISNULL(s.PO_Number, 'N/A') AS PO_Number, 
+                            ISNULL(p.SupplierID, 'N/A') AS SupplierID, 
+                            s.Status 
+                        FROM STOCK_INSTANCE s
+                        LEFT JOIN PROCUREMENT p ON s.PO_Number = p.PO_Number";
+
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
+            {
+                try
+                {
+                    SqlDataAdapter adapter = new SqlDataAdapter(query, conn);
+                    adapter.Fill(dt);
+                }
+                catch { }
+            }
             return dt;
         }
 
@@ -211,6 +229,19 @@ namespace SJ_PC_Store_SIMS.Controllers
             {
                 SqlCommand cmd = new SqlCommand("UPDATE STOCK_INSTANCE SET Status='Defective', DefectReason=@Reason WHERE SerialNumber=@SN", conn);
                 cmd.Parameters.AddWithValue("@SN", serialNumber); cmd.Parameters.AddWithValue("@Reason", reason); conn.Open(); return cmd.ExecuteNonQuery() > 0;
+            }
+        }
+
+        public bool RecoverStock(string serialNumber, string userId)
+        {
+            LogActivity(userId, $"Recovered returned stock: {serialNumber}");
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
+            {
+                // Resets the status to Available and strips out the defect reason
+                SqlCommand cmd = new SqlCommand("UPDATE STOCK_INSTANCE SET Status='Available', DefectReason=NULL WHERE SerialNumber=@SN", conn);
+                cmd.Parameters.AddWithValue("@SN", serialNumber);
+                conn.Open();
+                return cmd.ExecuteNonQuery() > 0;
             }
         }
 
