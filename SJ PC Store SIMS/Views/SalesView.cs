@@ -2,14 +2,9 @@
 using SJ_PC_Store_SIMS.Controllers;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Printing;
-using System.Linq;
 using System.Reflection;
-using System.Windows.Forms;
 using Button = System.Windows.Forms.Button;
 using ComboBox = System.Windows.Forms.ComboBox;
 using Control = System.Windows.Forms.Control;
@@ -210,11 +205,11 @@ namespace SJ_PC_Store_SIMS.Views
         private List<IconButton> _buttons = new List<IconButton>();
 
         // Profile Controls
-        private Label lblDetTitle, lblDetCustomer, lblDetDate, lblDetPayment, lblDetWarranty;
+        private Label lblDetTitle, lblDetCustomer, lblDetDate, lblDetPayment, lblDetWarranty, lblDetTransactionNo;
         private Label lblDetAuditCreated, lblDetAuditModified;
         private Label lblTotalSub, lblTotalDisc, lblTotalTax, lblTotalGrand;
         private BadgeLabel badgeStatus;
-        private IconButton btnSubmitPayment, btnCancel, btnPDF, btnEdit;
+        private IconButton btnSubmitPayment, btnCancel, btnPDF, btnEdit, btnCheckoutProfile, btnCompleteOrder, btnReturn;
         private FlowLayoutPanel flpLeftDetails;
         private Panel pnlRightItems;
         private RoundedPanel cardOrderDetails, cardAudit, cardAttach;
@@ -224,7 +219,7 @@ namespace SJ_PC_Store_SIMS.Views
         private ThemedDatePicker dtpOrderDate;
         private TextBox txtCustomerName, txtTransactionNumber;
         private NumericUpDown nudWarrantyDays;
-        private DarkComboBox cmbPaymentMethod, cmbCreateDiscountType, cmbCreateTaxType, cmbItemSelect, cmbSerialSelect;
+        private DarkComboBox cmbPaymentMethod, cmbCreateDiscountType, cmbCreateTaxType, cmbCategorySelect, cmbItemSelect, cmbSerialSelect;
         private TextBox txtQty, txtPrice, txtCreateDiscount, txtCreateTax;
 
         private FlowLayoutPanel flpCreateAttachments;
@@ -278,7 +273,8 @@ namespace SJ_PC_Store_SIMS.Views
             int toastWidth = Math.Max(320, lbl.PreferredWidth + 80);
             Form toast = new Form { StartPosition = FormStartPosition.Manual, FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, Size = new Size(toastWidth, 60), TopMost = true, ShowInTaskbar = false };
             toast.Location = new Point(parent.Right - toastWidth - 20, parent.Bottom - 80);
-            toast.Paint += (s, e) => {
+            toast.Paint += (s, e) =>
+            {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = new GraphicsPath()) { int r = 8; path.AddArc(0, 0, r, r, 180, 90); path.AddArc(toast.Width - r - 1, 0, r, r, 270, 90); path.AddArc(toast.Width - r - 1, toast.Height - r - 1, r, r, 0, 90); path.AddArc(0, toast.Height - r - 1, r, r, 90, 90); path.CloseFigure(); toast.Region = new Region(path); using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawPath(p, path); } }
             };
@@ -338,10 +334,39 @@ namespace SJ_PC_Store_SIMS.Views
         // =========================================================================
         private void InitializeLandingView()
         {
-            RoundedPanel container = new RoundedPanel { Dock = DockStyle.Fill, BorderRadius = 6, BorderSize = 1, Padding = new Padding(1) };
-            _borderedContainers.Add(container);
+            Panel pnlBody = new Panel { Dock = DockStyle.Fill, Padding = new Padding(25) };
 
-            SmoothPanel toolbar = new SmoothPanel { Dock = DockStyle.Top, Height = 80, BackColor = Color.Transparent, Padding = new Padding(25, 20, 25, 20) };
+            // 1. The Toolbar Card (Top)
+            RoundedPanel pnlToolbar = new RoundedPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 75,
+                BorderRadius = 6,
+                BorderSize = 1,
+            };
+
+            _borderedContainers.Add(pnlToolbar);
+
+            // 2. The 25-pixel Gap
+            Panel pnlSpacer = new Panel { Dock = DockStyle.Top, Height = 25 };
+
+            // 3. The Grid Card (Fills the rest of the screen)
+            RoundedPanel pnlGridContainer = new RoundedPanel
+            {
+                Dock = DockStyle.Fill,
+                BorderRadius = 6,
+                BorderSize = 1,
+                Padding = new Padding(1)
+            };
+            _borderedContainers.Add(pnlGridContainer); // Hook into Theme Engine
+
+            SmoothPanel toolbar = new SmoothPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 80,
+                BackColor = Color.Transparent,
+                Padding = new Padding(25, 20, 25, 20)
+            };
             toolbar.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 79, toolbar.Width, 79); } };
 
             cmbFilter = new DarkComboBox { Location = new Point(25, 20), Size = new Size(200, 38), Font = new Font("Segoe UI", 14F, FontStyle.Bold), Cursor = Cursors.Hand };
@@ -372,17 +397,28 @@ namespace SJ_PC_Store_SIMS.Views
             dgvSalesList.Columns["Action"].DefaultCellStyle.Font = new Font("Segoe UI", 26F, FontStyle.Bold);
             dgvSalesList.Columns["Action"].DefaultCellStyle.ForeColor = UITheme.MutedText;
             dgvSalesList.Columns["Action"].DefaultCellStyle.Padding = new Padding(0, 0, 20, 5);
+
+            // ADD THIS LOOP: Disables clicking/sorting on all column headers
+            foreach (DataGridViewColumn col in dgvSalesList.Columns)
+            {
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+            }
+
             dgvSalesList.DefaultCellStyle.Padding = new Padding(25, 0, 0, 0);
             dgvSalesList.ColumnHeadersDefaultCellStyle.Padding = new Padding(25, 0, 0, 0);
             dgvSalesList.AdvancedCellBorderStyle.All = DataGridViewAdvancedCellBorderStyle.None;
             dgvSalesList.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
 
-            dgvSalesList.Paint += (s, e) => {
+
+
+            dgvSalesList.Paint += (s, e) =>
+            {
                 using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawLine(p, 0, 59, dgvSalesList.Width, 59); }
                 if (dgvSalesList.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "No Sales Orders found in the database.", new Font("Segoe UI", 12F, FontStyle.Italic), dgvSalesList.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             };
 
-            dgvSalesList.CellFormatting += (s, e) => {
+            dgvSalesList.CellFormatting += (s, e) =>
+            {
                 if (e.RowIndex >= 0 && e.ColumnIndex == dgvSalesList.Columns["Status"].Index && e.Value != null)
                 {
                     string stat = e.Value.ToString(); Color fgColor;
@@ -398,8 +434,16 @@ namespace SJ_PC_Store_SIMS.Views
 
             dgvSalesList.CellMouseClick += (s, e) => { if (e.RowIndex >= 0) { string id = dgvSalesList.Rows[e.RowIndex].Cells[0].Value.ToString(); _selectedTransaction = _allTransactions.FirstOrDefault(t => t.ReceiptID == id); SwitchView("Profile"); } };
 
-            container.Controls.Add(dgvSalesList); container.Controls.Add(toolbar);
-            pnlLanding.Controls.Add(container);
+            pnlGridContainer.Controls.Add(dgvSalesList);
+
+            pnlToolbar.Controls.Add(toolbar);
+
+            // Assembly order is critical for docking!
+            pnlBody.Controls.Add(pnlGridContainer);
+            pnlBody.Controls.Add(pnlSpacer);
+            pnlBody.Controls.Add(pnlToolbar);
+
+            pnlLanding.Controls.Add(pnlBody);
         }
 
         // =========================================================================
@@ -429,21 +473,93 @@ namespace SJ_PC_Store_SIMS.Views
             btnEdit.Click += (s, e) => { _isEditMode = true; PrepareCreateForm(); SwitchView("Create"); };
             btnPDF = new IconButton { Text = " Generate PDF", IconChar = IconChar.FilePdf, IconSize = 16, Size = new Size(140, 38), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Secondary", Font = new Font("Segoe UI", 9F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText, TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 10, 0), Margin = new Padding(0) };
             btnPDF.Click += (s, e) => GeneratePDF();
-            btnSubmitPayment = new IconButton { Text = " Submit Payment", IconChar = IconChar.MoneyBill, IconSize = 16, Size = new Size(150, 38), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Success", Font = new Font("Segoe UI", 9F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText, TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 10, 0), Margin = new Padding(10, 0, 0, 0) };
+            btnSubmitPayment = new IconButton
+            {
+                Text = " Submit Payment",
+                IconChar = IconChar.MoneyBill,
+                IconSize = 16,
+                Size = new Size(150, 38),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Tag = "Success",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                TextAlign = ContentAlignment.MiddleRight,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(10, 0, 10, 0),
+                Margin = new Padding(10, 0, 0, 0)
+            };
             btnSubmitPayment.Click += (s, e) => OpenModal("SubmitPayment");
+
+            // NEW: Check Out Order button (Converts Quotation to Ordered)
+            btnCheckoutProfile = new IconButton
+            {
+                Text = " Check Out Order",
+                IconChar = IconChar.CheckCircle,
+                IconSize = 16,
+                Size = new Size(150, 39),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Tag = "ActionAdd",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                TextAlign = ContentAlignment.MiddleRight,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(10, 0, 10, 0),
+                Margin = new Padding(10, 0, 0, 0)
+            };
+            btnCheckoutProfile.Click += (s, e) =>
+            {
+                if (_salesController.UpdateTransactionStatus(_selectedTransaction.ReceiptID, "Ordered", _activeUserId))
+                {
+                    _selectedTransaction.Status = "Ordered";
+                    LogAndNotify("Order Checked Out", _selectedTransaction.ReceiptID, true);
+                    LoadData();
+                    SwitchView("Profile");
+                }
+            };
+
+            // NEW: Complete Order button (Converts Paid to Completed)
+            btnCompleteOrder = new IconButton
+            {
+                Text = " Complete Order",
+                IconChar = IconChar.CheckDouble,
+                IconSize = 16,
+                Size = new Size(160, 39),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Tag = "Success", // Green Button Theme
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                TextAlign = ContentAlignment.MiddleRight,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(10, 0, 10, 0),
+                Margin = new Padding(10, 0, 0, 0)
+            };
+            btnCompleteOrder.Click += (s, e) => OpenModal("CompleteOrder");
+
             btnCancel = new IconButton { Text = " Cancel", IconChar = IconChar.TimesCircle, IconSize = 16, Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Danger", Font = new Font("Segoe UI", 9F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText, TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 10, 0), Margin = new Padding(10, 0, 0, 0) };
             btnCancel.Click += (s, e) => OpenModal("CancelOrder");
-            flpRight.Controls.AddRange(new Control[] { btnSubmitPayment, btnCancel, btnEdit, btnPDF });
-            _buttons.AddRange(new[] { btnEdit, btnPDF }); _dynamicTexts.Add(lblDetTitle);
+
+            // CHANGED: Included btnCompleteOrder in the UI arrays
+            flpRight.Controls.AddRange(new Control[] { btnCompleteOrder, btnCheckoutProfile, btnSubmitPayment, btnCancel, btnEdit, btnPDF });
+            _buttons.AddRange(new[] { btnCompleteOrder, btnCheckoutProfile, btnSubmitPayment, btnCancel, btnEdit, btnPDF });
+
+            _dynamicTexts.Add(lblDetTitle);
             pnlDetailHeader.Controls.Add(flpRight); pnlDetailHeader.Controls.Add(flpLeft);
 
             profileStepper = new StatusStepper { Dock = DockStyle.Top, Height = 100 };
 
             Panel pnlBody = new Panel { Dock = DockStyle.Fill };
             flpLeftDetails = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 380, AutoScroll = true, Padding = new Padding(25, 20, 10, 20), FlowDirection = FlowDirection.TopDown, WrapContents = false };
+
+            // ADD THIS LINE: Draws the vertical line separator on the right edge
+            flpLeftDetails.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 379, 0, 379, flpLeftDetails.Height); } };
+
             pnlRightItems = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(30) };
 
-            Func<string, RoundedPanel> CreateInfoSection = (title) => {
+            Func<string, RoundedPanel> CreateInfoSection = (title) =>
+            {
                 Label lHead = new Label { Text = title.ToUpper(), Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UITheme.MutedText, AutoSize = true, Margin = new Padding(0, 0, 0, 10) };
                 flpLeftDetails.Controls.Add(lHead); _mutedTexts.Add(lHead);
                 RoundedPanel p = new RoundedPanel { Width = 320, Height = 100, BorderRadius = 6, BorderSize = 1, Padding = new Padding(20), Margin = new Padding(0, 0, 0, 25) };
@@ -455,7 +571,11 @@ namespace SJ_PC_Store_SIMS.Views
             lblDetDate = new Label { Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(20, 50) };
             lblDetPayment = new Label { Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(20, 75) };
             lblDetWarranty = new Label { Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(20, 100) };
-            cardOrderDetails.Controls.AddRange(new Control[] { lblDetCustomer, lblDetDate, lblDetPayment, lblDetWarranty });
+
+            // ADDED: Transaction Number label for Online Payments
+            lblDetTransactionNo = new Label { Font = new Font("Segoe UI", 9.5F), AutoSize = true, Location = new Point(20, 125), Visible = false };
+
+            cardOrderDetails.Controls.AddRange(new Control[] { lblDetCustomer, lblDetDate, lblDetPayment, lblDetWarranty, lblDetTransactionNo });
             cardOrderDetails.SizeChanged += (s, e) => AdjustCardHeight(cardOrderDetails);
 
             cardAudit = CreateInfoSection("Audit Trail");
@@ -467,7 +587,8 @@ namespace SJ_PC_Store_SIMS.Views
             cardAttach = CreateInfoSection("Attachments");
             btnAttach = new Button { Text = "📝 Attach File", Dock = DockStyle.Top, Size = new Size(110, 35), Location = new Point(20, 20), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
             btnAttach.FlatAppearance.BorderSize = 0;
-            btnAttach.Click += (s, e) => {
+            btnAttach.Click += (s, e) =>
+            {
                 using (OpenFileDialog ofd = new OpenFileDialog()) { ofd.Multiselect = true; ofd.Filter = "All Files|*.*|Documents|*.pdf;*.docx;*.xlsx|Images|*.jpg;*.png;*.bmp"; if (ofd.ShowDialog() == DialogResult.OK) { foreach (string file in ofd.FileNames) { _attachController.UploadAttachment(null, file, _activeUserId, _selectedTransaction.ReceiptID); } LogAndNotify("Attachment", $"{ofd.FileNames.Length} file(s) attached.", true); LoadAttachments(); } }
             };
             cardAttach.Controls.Add(btnAttach);
@@ -475,12 +596,30 @@ namespace SJ_PC_Store_SIMS.Views
             cardAttach.Controls.Add(flpAttachments);
             cardAttach.SizeChanged += (s, e) => AdjustCardHeight(cardAttach);
 
-            _mutedTexts.AddRange(new[] { lblDetDate, lblDetPayment, lblDetWarranty, lblDetAuditCreated, lblDetAuditModified });
+            _mutedTexts.AddRange(new[] { lblDetDate, lblDetPayment, lblDetWarranty, lblDetAuditCreated, lblDetAuditModified, lblDetTransactionNo });
 
             Panel pnlRightHeader = new Panel { Dock = DockStyle.Top, Height = 60 };
             Label lItemsTitle = new Label { Text = "Ordered Items", Font = new Font("Segoe UI", 14F, FontStyle.Bold), AutoSize = true, Location = new Point(0, 10) };
             _dynamicTexts.Add(lItemsTitle);
-            IconButton btnReturn = new IconButton { Text = " Return Item", IconChar = IconChar.Undo, IconSize = 16, Size = new Size(140, 38), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(pnlRightHeader.Width - 160, 10), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "Danger", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            btnReturn = new IconButton
+            {
+                Text = " Return Item",
+                IconChar = IconChar.Undo,
+                IconSize = 16,
+                Size = new Size(140, 38),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(pnlRightHeader.Width - 140, 10),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Tag = "ActionAdd",
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+
+                // ADDED: Fixes the icon overlap by defining strict image/text relations and padding
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                TextAlign = ContentAlignment.MiddleRight,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(10, 0, 10, 0)
+            };
             btnReturn.Click += (s, e) => OpenModal("ReturnItem"); _buttons.Add(btnReturn);
             pnlRightHeader.Controls.AddRange(new Control[] { btnReturn, lItemsTitle });
 
@@ -531,9 +670,18 @@ namespace SJ_PC_Store_SIMS.Views
             else { badgeStatus.BgTint = Color.FromArgb(40, 239, 68, 68); badgeStatus.ForeColor = Color.FromArgb(239, 68, 68); }
             badgeStatus.Invalidate();
 
-            btnSubmitPayment.Visible = _selectedTransaction.Status == "Ordered" || _selectedTransaction.Status == "Quotation";
-            btnCancel.Visible = _selectedTransaction.Status != "Paid" && _selectedTransaction.Status != "Completed" && _selectedTransaction.Status != "Returned";
+            // CHANGED: Added logic for Complete Order and Return Item buttons
+            btnSubmitPayment.Visible = _selectedTransaction.Status == "Ordered";
+            btnCheckoutProfile.Visible = _selectedTransaction.Status == "Quotation";
+            btnCompleteOrder.Visible = _selectedTransaction.Status == "Paid";
+            btnCancel.Visible = _selectedTransaction.Status == "Quotation" || _selectedTransaction.Status == "Ordered";
             btnEdit.Visible = _selectedTransaction.Status == "Quotation" || _selectedTransaction.Status == "Ordered";
+
+            if (btnReturn != null)
+            {
+                // Return button is completely hidden until the order is finalized
+                btnReturn.Visible = _selectedTransaction.Status == "Completed" || _selectedTransaction.Status == "Returned";
+            }
 
             lblDetCustomer.Text = $"{_selectedTransaction.CustomerName}";
             lblDetDate.Text = $"Order Date: {_selectedTransaction.OrderDate:MMM dd, yyyy}";
@@ -542,8 +690,21 @@ namespace SJ_PC_Store_SIMS.Views
             if (_selectedTransaction.Status == "Quotation" && (DateTime.Now - _selectedTransaction.OrderDate).TotalDays > 30)
                 lblDetWarranty.Text += "\n⚠️ This quotation has expired (30+ days).";
 
+            // ADDED: Display Transaction Number safely under Warranty if Online Payment
+            if (_selectedTransaction.PaymentMethod == "Online Payment" && !string.IsNullOrEmpty(_selectedTransaction.TransactionNumber))
+            {
+                lblDetTransactionNo.Text = $"Ref No: {_selectedTransaction.TransactionNumber}";
+                lblDetTransactionNo.Visible = true;
+            }
+            else
+            {
+                lblDetTransactionNo.Visible = false;
+            }
+
             lblDetAuditCreated.Text = $"Created By:\n{_selectedTransaction.CreatedBy} ({_selectedTransaction.CreatedOn:g})";
-            lblDetAuditModified.Text = $"Modified By:\n{_selectedTransaction.ModifiedBy ?? "N/A"}";
+            // CHANGED: Now displays the timestamp next to the modifier's name if a modification exists
+            lblDetAuditModified.Text = $"Modified By:\n{_selectedTransaction.ModifiedBy ?? "N/A"}" +
+                                       (_selectedTransaction.ModifiedOn.HasValue ? $" ({_selectedTransaction.ModifiedOn.Value:g})" : "");
 
             lblTotalSub.Text = $"Sub Total: {_selectedTransaction.SubTotal:C2}";
             lblTotalDisc.Text = $"Discount Applied: -{_selectedTransaction.Discount:C2}";
@@ -644,6 +805,7 @@ namespace SJ_PC_Store_SIMS.Views
 
             Panel pnlItemHeader = new Panel { Dock = DockStyle.Top, Height = 50 };
             Label lblItemCartTitle = new Label { Text = "Item Cart", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(0, 10) };
+            _dynamicTexts.Add(lblItemCartTitle);
             IconButton btnAddItem = new IconButton { Text = " Add Item", IconChar = IconChar.Plus, IconSize = 14, Size = new Size(110, 35), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(85, 5), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Tag = "ActionAdd", Font = new Font("Segoe UI", 9F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText, TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 10, 0) };
             btnAddItem.Click += (s, e) => AddCartItemRow(); _buttons.Add(btnAddItem);
             pnlItemHeader.Controls.Add(lblItemCartTitle); pnlItemHeader.Controls.Add(btnAddItem);
@@ -651,37 +813,45 @@ namespace SJ_PC_Store_SIMS.Views
             Panel pnlItemSearch = new Panel { Dock = DockStyle.Top, Height = 70, Padding = new Padding(0, 15, 0, 0) };
             pnlItemSearch.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 0, pnlItemSearch.Width, 0); } };
 
-            // 1. Setup Item Select with Wrapper
+            // 1. Setup Category Select with Wrapper
+            cmbCategorySelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbCategorySelect.SelectedIndexChanged += (s, e) => OnCategorySelected();
+            _comboInputs.Add(cmbCategorySelect);
+            Control wCat = CreateInputWrapper(cmbCategorySelect, 150);
+            wCat.Location = new Point(5, 20);
+            wCat.Margin = new Padding(0);
+
+            // 2. Setup Item Select with Wrapper (Width reduced to fit Category)
             cmbItemSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbItemSelect.SelectedIndexChanged += (s, e) => OnItemSelected();
             _comboInputs.Add(cmbItemSelect);
-            Control wItem = CreateInputWrapper(cmbItemSelect, 300);
-            wItem.Location = new Point(5, 20);
+            Control wItem = CreateInputWrapper(cmbItemSelect, 250);
+            wItem.Location = new Point(165, 20);
             wItem.Margin = new Padding(0);
 
-            // 2. Setup Serial Select with Wrapper
+            // 3. Setup Serial Select with Wrapper
             cmbSerialSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), DropDownStyle = ComboBoxStyle.DropDown };
             _comboInputs.Add(cmbSerialSelect);
-            Control wSerial = CreateInputWrapper(cmbSerialSelect, 220);
-            wSerial.Location = new Point(330, 20);
+            Control wSerial = CreateInputWrapper(cmbSerialSelect, 200);
+            wSerial.Location = new Point(425, 20);
             wSerial.Margin = new Padding(0);
 
-            // 3. Setup Qty with Wrapper
+            // 4. Setup Qty with Wrapper
             txtQty = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "1", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
             _textInputs.Add(txtQty);
-            Control wQty = CreateInputWrapper(txtQty, 135);
-            wQty.Location = new Point(570, 20);
+            Control wQty = CreateInputWrapper(txtQty, 90);
+            wQty.Location = new Point(635, 20);
             wQty.Margin = new Padding(0);
 
-            // 4. Setup Price with Wrapper
+            // 5. Setup Price with Wrapper
             txtPrice = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None, ReadOnly = true };
             _textInputs.Add(txtPrice);
-            Control wPrice = CreateInputWrapper(txtPrice, 110);
-            wPrice.Location = new Point(725, 20);
+            Control wPrice = CreateInputWrapper(txtPrice, 100);
+            wPrice.Location = new Point(735, 20);
             wPrice.Margin = new Padding(0);
 
-            // 5. Add the wrappers to the panel (wItem and wSerial instead of cmbItemSelect and cmbSerialSelect)
-            pnlItemSearch.Controls.AddRange(new Control[] { wItem, wSerial, wQty, wPrice });
+            // Add all wrappers to the panel
+            pnlItemSearch.Controls.AddRange(new Control[] { wCat, wItem, wSerial, wQty, wPrice });
 
             dgvCartItems = new SmoothGrid
             {
@@ -733,7 +903,8 @@ namespace SJ_PC_Store_SIMS.Views
             dgvCartItems.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
 
             // Custom Header Line Paint Event
-            dgvCartItems.Paint += (s, e) => {
+            dgvCartItems.Paint += (s, e) =>
+            {
                 using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawLine(p, 0, 49, dgvCartItems.Width, 49); }
                 if (dgvCartItems.Rows.Count == 0)
                 {
@@ -742,7 +913,8 @@ namespace SJ_PC_Store_SIMS.Views
             };
 
             // NEW: Delete Row Event
-            dgvCartItems.CellMouseClick += (s, e) => {
+            dgvCartItems.CellMouseClick += (s, e) =>
+            {
                 if (e.RowIndex >= 0 && e.ColumnIndex == dgvCartItems.Columns["Action"].Index)
                 {
                     dgvCartItems.Rows.RemoveAt(e.RowIndex);
@@ -755,7 +927,7 @@ namespace SJ_PC_Store_SIMS.Views
 
             pnlItems.Controls.Add(dgvCartItems);
 
-            pnlItems.Controls.Add(pnlItemSearch); 
+            pnlItems.Controls.Add(pnlItemSearch);
             pnlItems.Controls.Add(pnlItemHeader);
 
             // ---- TOTALS + ATTACHMENTS RIGHT PANEL ----
@@ -803,18 +975,16 @@ namespace SJ_PC_Store_SIMS.Views
 
             pnlTotals.Controls.AddRange(new Control[] { lblTotalsHeader, lblCreateSub, lDisc, wDiscType, wDisc, lTax, wTaxType, wTax, lblCreateGrand });
 
-            RoundedPanel pnlAttachCreate = new RoundedPanel
+            Panel pnlAttachCreate = new RoundedPanel
             {
                 Location = new Point(0, 290),
                 Size = new Size(350, 240),
-                BorderRadius = 6,
-                BorderSize = 1,
-                Padding = new Padding(15)
             };
 
             btnAttachCreate = new Button { Text = "📝 Attach File", Dock = DockStyle.Top, Size = new Size(110, 35), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
             btnAttachCreate.FlatAppearance.BorderSize = 0;
-            btnAttachCreate.Click += (s, e) => {
+            btnAttachCreate.Click += (s, e) =>
+            {
                 using (OpenFileDialog ofd = new OpenFileDialog())
                 {
                     ofd.Multiselect = true;
@@ -850,13 +1020,13 @@ namespace SJ_PC_Store_SIMS.Views
 
             // ADDED: Hook the right-side panels into the theme engine so they get borders and backgrounds!
             _borderedContainers.Add(pnlTotals);
-            _borderedContainers.Add(pnlAttachCreate);
 
             pnlBody.Controls.Add(pnlRightCol); pnlBody.Controls.Add(pnlItems);
             container.Controls.Add(pnlBody); container.Controls.Add(pnlCreateHeader);
             pnlCreate.Controls.Add(container);
 
-            pnlBody.Resize += (s, e) => {
+            pnlBody.Resize += (s, e) =>
+            {
                 pnlDetails.Width = pnlBody.Width - 60;
                 pnlItems.Width = pnlBody.Width - 380;
                 pnlRightCol.Location = new Point(pnlBody.Width - 350, 340);
@@ -897,47 +1067,105 @@ namespace SJ_PC_Store_SIMS.Views
             }
         }
 
+        // NEW: Filters the Item combo box based on the selected category
+        private void OnCategorySelected()
+        {
+            cmbItemSelect.Items.Clear();
+            cmbSerialSelect.Items.Clear();
+            cmbSerialSelect.Text = ""; // Explicitly clear any lingering typed text
+            txtPrice.Text = "0.00";
+            if (cmbCategorySelect.SelectedIndex < 0) return;
+
+            string selectedCat = cmbCategorySelect.SelectedItem?.ToString() ?? "";
+
+            // Added IsActive filter to ensure we only load active, sellable blueprints
+            var itemsInCat = _dbItems.Where(i => i.Category == selectedCat && i.IsActive).ToList();
+
+            foreach (var item in itemsInCat)
+            {
+                cmbItemSelect.Items.Add($"{item.Specs} ({item.ItemCondition})");
+            }
+
+            if (cmbItemSelect.Items.Count > 0) cmbItemSelect.SelectedIndex = 0;
+        }
+
         private void OnItemSelected()
         {
-            if (cmbItemSelect.SelectedIndex < 0) return;
-            string selected = cmbItemSelect.Text;
-            var match = _dbItems.FirstOrDefault(i => $"{i.Category} {i.Specs} ({i.ItemCondition})" == selected);
+            if (cmbItemSelect.SelectedIndex < 0 || cmbCategorySelect.SelectedIndex < 0) return;
+
+            // FIX: WinForms .Text property lags behind programmatic SelectedIndex changes.
+            // ALWAYS use .SelectedItem.ToString() to get the true current value.
+            string selectedCat = cmbCategorySelect.SelectedItem?.ToString() ?? "";
+            string selectedItem = cmbItemSelect.SelectedItem?.ToString() ?? "";
+
+            // Find the specific item by matching Category AND Specs, ensuring it is Active
+            var match = _dbItems.FirstOrDefault(i => i.Category == selectedCat && $"{i.Specs} ({i.ItemCondition})" == selectedItem && i.IsActive);
+
             if (match != null)
             {
                 txtPrice.Text = match.CurrentValue.ToString("0.00");
+
                 cmbSerialSelect.Items.Clear();
+                cmbSerialSelect.Text = ""; // Clear lingering text so it doesn't show old serials
+
                 var available = _salesController.GetAvailableStockForItem(match.ItemCode);
-                foreach (var s in available) cmbSerialSelect.Items.Add(s.SerialNumber);
-                if (cmbSerialSelect.Items.Count > 0) cmbSerialSelect.SelectedIndex = 0;
+                foreach (var s in available)
+                {
+                    cmbSerialSelect.Items.Add(s.SerialNumber);
+                }
+
+                if (cmbSerialSelect.Items.Count > 0)
+                {
+                    cmbSerialSelect.SelectedIndex = 0;
+                }
+                else
+                {
+                    // Visual feedback if the item exists but physical stock is 0
+                    cmbSerialSelect.Text = "No Stock Available";
+                }
             }
         }
 
         private void AddCartItemRow(SalesItemModel existingItem = null)
         {
-            if (cmbItemSelect.SelectedIndex < 0 || cmbSerialSelect.SelectedIndex < 0) { ShowToast("Please select an item and serial number.", false); return; }
+            // Added validation to prevent adding "No Stock Available" strings to the cart
+            if (existingItem == null && (cmbItemSelect.SelectedIndex < 0 || string.IsNullOrWhiteSpace(cmbSerialSelect.Text) || cmbSerialSelect.Text == "No Stock Available"))
+            {
+                ShowToast("Please select a valid item and serial number.", false);
+                return;
+            }
+
             string serial = existingItem?.SerialNumber ?? cmbSerialSelect.Text;
-            string itemDesc = existingItem?.Description ?? cmbItemSelect.Text;
+
+            // Use SelectedItem to perfectly construct the detailed receipt name
+            string itemDesc = existingItem?.Description ?? $"{cmbCategorySelect.SelectedItem} {cmbItemSelect.SelectedItem}";
+
             decimal price = existingItem?.UnitPrice ?? (decimal.TryParse(txtPrice.Text, out decimal p) ? p : 0);
             int qty = existingItem?.Quantity ?? (int.TryParse(txtQty.Text, out int q) ? q : 1);
 
             foreach (DataGridViewRow row in dgvCartItems.Rows)
                 if (row.Cells["Serial"].Value?.ToString() == serial) { ShowToast("This serial number is already in the cart.", false); return; }
 
-            // Added the trash icon at the end
             dgvCartItems.Rows.Add(itemDesc, serial, qty, price, price * qty, "🗑");
             CalculateTotals();
         }
 
         private void PrepareCreateForm()
         {
-            // Clear the grid
-            foreach (Control c in dgvCartItems.Controls)
-                if (c is SmoothGrid grid) grid.Rows.Clear();
+            dgvCartItems.Rows.Clear();
 
-            // Populate item combo
+            // Clear and reset the dropdowns
+            cmbCategorySelect.Items.Clear();
             cmbItemSelect.Items.Clear();
-            foreach (var item in _dbItems)
-                cmbItemSelect.Items.Add($"{item.Category} {item.Specs} ({item.ItemCondition})");
+            cmbSerialSelect.Items.Clear();
+            txtPrice.Text = "0.00";
+
+            // Populate Category combo instead of Item combo
+            var categories = _dbItems.Select(i => i.Category).Distinct().ToList();
+            foreach (var cat in categories)
+            {
+                cmbCategorySelect.Items.Add(cat);
+            }
 
             if (_isEditMode && _selectedTransaction != null)
             {
@@ -960,7 +1188,7 @@ namespace SJ_PC_Store_SIMS.Views
                 nudWarrantyDays.Value = 7; dtpOrderDate.Value = DateTime.Now;
                 txtCreateDiscount.Text = "0.00"; txtCreateTax.Text = "0.00";
             }
-            CalculateTotals(); 
+            CalculateTotals();
             ApplyTheme();
 
             _pendingAttachments.Clear();
@@ -1038,6 +1266,9 @@ namespace SJ_PC_Store_SIMS.Views
                 }
                 _pendingAttachments.Clear();
 
+                // ADDED: Empties the cart immediately after the order is successfully saved
+                dgvCartItems.Rows.Clear();
+
                 LogAndNotify(_isEditMode ? "Order Updated" : (status == "Quotation" ? "Quotation Saved" : "Order Checked Out"), receiptID, true);
                 LoadData(); SwitchView("Landing");
             }
@@ -1069,43 +1300,304 @@ namespace SJ_PC_Store_SIMS.Views
             ModalForm modal = new ModalForm { FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, StartPosition = FormStartPosition.CenterScreen, ShowInTaskbar = false };
             modal.Paint += (s, e) => { if (modal.Width <= 1 || modal.Height <= 1) return; e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath path = new GraphicsPath()) { int r = 12; path.AddArc(0, 0, r, r, 180, 90); path.AddArc(modal.Width - r - 1, 0, r, r, 270, 90); path.AddArc(modal.Width - r - 1, modal.Height - r - 1, r, r, 0, 90); path.AddArc(0, modal.Height - r - 1, r, r, 90, 90); path.CloseFigure(); modal.Region = new Region(path); using (Pen p = new Pen(UITheme.CurrentBorder, 3)) { e.Graphics.DrawPath(p, path); } } };
 
+            // ADDED: The uniform gray footer bar for action buttons
+            Panel pnlFooter = new Panel { Dock = DockStyle.Bottom, Height = 70, BackColor = UITheme.CurrentPanel };
+            pnlFooter.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(p, 0, 0, pnlFooter.Width, 0); } };
+
             if (type == "SubmitPayment")
             {
-                modal.Size = new Size(450, 300);
-                Label lblTitle = new Label { Text = "Submit Payment", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(30, 30) };
-                Label lblAmt = new Label { Text = "Amount Received", Font = new Font("Segoe UI", 9.5F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(30, 80) };
-                TextBox txtAmtRec = new TextBox { Font = new Font("Segoe UI", 12F), Size = new Size(200, 35), Location = new Point(30, 105), BorderStyle = BorderStyle.FixedSingle };
-                Label lblChange = new Label { Text = "Change: ₱ 0.00", Font = new Font("Segoe UI", 11F, FontStyle.Bold), AutoSize = true, Location = new Point(30, 155), ForeColor = Color.FromArgb(16, 185, 129) };
-                txtAmtRec.TextChanged += (s, e) => { if (decimal.TryParse(txtAmtRec.Text, out decimal rec)) lblChange.Text = $"Change: {Math.Max(0, rec - _selectedTransaction.GrandTotal):C2}"; };
-                Button btnConfirm = new Button { Text = "Confirm Payment", Size = new Size(140, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(16, 185, 129), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(30, 210) }; btnConfirm.FlatAppearance.BorderSize = 0;
-                btnConfirm.Click += (s, e) => { if (_salesController.ProcessPayment(_selectedTransaction.ReceiptID, _activeUserId)) { _selectedTransaction.Status = "Paid"; LogAndNotify("Payment Received", _selectedTransaction.ReceiptID, true); LoadData(); SwitchView("Profile"); modal.Close(); } else ShowToast("Payment processing failed.", false); };
-                modal.Controls.AddRange(new Control[] { lblTitle, lblAmt, txtAmtRec, lblChange, btnConfirm });
+                modal.Size = new Size(450, 360);
+                IconPictureBox iconMoney = new IconPictureBox { IconChar = IconChar.MoneyBillWave, IconColor = Color.FromArgb(16, 185, 129), IconSize = 60, Size = new Size(60, 60), Location = new Point((modal.Width - 60) / 2, 25) };
+
+                Label lblTitle = new Label { Text = "Submit Payment", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+                lblTitle.Location = new Point((modal.Width - lblTitle.PreferredWidth) / 2, 95);
+
+                Label lblTotal = new Label { Text = $"Total Due: {_selectedTransaction.GrandTotal:C2}", Font = new Font("Segoe UI", 11F, FontStyle.Bold), ForeColor = Color.FromArgb(239, 68, 68), AutoSize = true };
+                lblTotal.Location = new Point((modal.Width - lblTotal.PreferredWidth) / 2, 130);
+
+                Label lblAmt = new Label { Text = "Amount Received (₱):", Font = new Font("Segoe UI", 9.5F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(80, 165) };
+                TextBox txtAmtRec = new TextBox { Font = new Font("Segoe UI", 14F), Size = new Size(290, 35), Location = new Point(80, 190), BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Center };
+
+                Label lblChange = new Label { Text = "Change: ₱ 0.00", Font = new Font("Segoe UI", 11F, FontStyle.Bold), AutoSize = true, ForeColor = Color.FromArgb(16, 185, 129) };
+                lblChange.Location = new Point((modal.Width - lblChange.PreferredWidth) / 2, 240);
+
+                // CHANGED: Moved btnAction declaration UP so we can modify its Enabled state instantly
+                Button btnAction = new Button { Text = "Confirm Payment", Size = new Size(150, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Gray, ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnAction.FlatAppearance.BorderSize = 0;
+                btnAction.Enabled = false; // Disabled by default to protect checkout
+
+                txtAmtRec.TextChanged += (s, e) =>
+                {
+                    if (decimal.TryParse(txtAmtRec.Text, out decimal rec))
+                    {
+                        if (rec >= _selectedTransaction.GrandTotal)
+                        {
+                            lblChange.Text = $"Change: {rec - _selectedTransaction.GrandTotal:C2}";
+                            lblChange.ForeColor = Color.FromArgb(16, 185, 129); // Restores Green text
+                            btnAction.Enabled = true;
+                            btnAction.BackColor = Color.FromArgb(16, 185, 129); // Highlights the button green
+                        }
+                        else
+                        {
+                            lblChange.Text = "⚠️ Insufficient Payment Amount";
+                            lblChange.ForeColor = Color.FromArgb(239, 68, 68); // Red warning text
+                            btnAction.Enabled = false;
+                            btnAction.BackColor = Color.Gray; // Locks the button color
+                        }
+                    }
+                    else
+                    {
+                        lblChange.Text = "Change: ₱ 0.00";
+                        lblChange.ForeColor = Color.FromArgb(16, 185, 129);
+                        btnAction.Enabled = false;
+                        btnAction.BackColor = Color.Gray;
+                    }
+                    lblChange.Location = new Point((modal.Width - lblChange.PreferredWidth) / 2, 240);
+                };
+
+                Button btnCancel = new Button { Text = "Cancel", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnCancel.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnCancel.Click += (s, e) => modal.Close();
+
+                int totalW = btnCancel.Width + 10 + btnAction.Width;
+                btnCancel.Location = new Point((modal.Width - totalW) / 2, 16); btnAction.Location = new Point(((modal.Width - totalW) / 2) + btnCancel.Width + 10, 16);
+
+                btnAction.Click += (s, e) =>
+                {
+                    if (_salesController.ProcessPayment(_selectedTransaction.ReceiptID, _activeUserId))
+                    {
+                        _selectedTransaction.Status = "Paid";
+
+                        // CHANGED: Fires a detailed, successful alert text message on completion
+                        LogAndNotify("Payment Confirmed", $"Successfully processed payment for order {_selectedTransaction.ReceiptID}.", true);
+
+                        LoadData(); SwitchView("Profile"); modal.Close();
+                    }
+                    else ShowToast("Payment processing failed.", false);
+                };
+
+                pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
+                modal.Controls.AddRange(new Control[] { iconMoney, lblTitle, lblTotal, lblAmt, txtAmtRec, lblChange });
             }
             else if (type == "CancelOrder")
             {
-                modal.Size = new Size(400, 220);
-                Label lblW = new Label { Text = "Cancel Order?", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(30, 30) };
-                Label lblD = new Label { Text = "This action cannot be undone.", Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(30, 75) };
-                Button btnKeep = new Button { Text = "Keep Order", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(100, 130) }; btnKeep.Click += (s, e) => modal.Close();
-                Button btnConf = new Button { Text = "Cancel Order", Size = new Size(120, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(239, 68, 68), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(210, 130) };
-                btnConf.Click += (s, e) => { if (_salesController.UpdateTransactionStatus(_selectedTransaction.ReceiptID, "Cancelled", _activeUserId)) { _selectedTransaction.Status = "Cancelled"; LogAndNotify("Order Cancelled", _selectedTransaction.ReceiptID, true); LoadData(); SwitchView("Profile"); modal.Close(); } };
-                modal.Controls.AddRange(new Control[] { lblW, lblD, btnKeep, btnConf });
+                modal.Size = new Size(400, 280);
+                IconPictureBox iconWarning = new IconPictureBox { IconChar = IconChar.ExclamationTriangle, IconColor = Color.FromArgb(239, 68, 68), IconSize = 60, Size = new Size(60, 60), Location = new Point((modal.Width - 60) / 2, 30) };
+
+                Label lblWarn = new Label { Text = "Cancel Order?", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+                lblWarn.Location = new Point((modal.Width - lblWarn.PreferredWidth) / 2, 110);
+                Label lblDesc = new Label { Text = $"Are you sure you want to cancel\n{_selectedTransaction.ReceiptID}?\nThis action cannot be undone.", Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
+                lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 145);
+
+                Button btnCancel = new Button { Text = "Keep Order", Size = new Size(110, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnCancel.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnCancel.Click += (s, e) => modal.Close();
+
+                Button btnAction = new Button { Text = "Cancel Order", Size = new Size(120, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(239, 68, 68), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnAction.FlatAppearance.BorderSize = 0;
+
+                int totalW = btnCancel.Width + 10 + btnAction.Width;
+                btnCancel.Location = new Point((modal.Width - totalW) / 2, 16); btnAction.Location = new Point(((modal.Width - totalW) / 2) + btnCancel.Width + 10, 16);
+
+                btnAction.Click += (s, e) =>
+                {
+                    if (_salesController.UpdateTransactionStatus(_selectedTransaction.ReceiptID, "Cancelled", _activeUserId))
+                    {
+                        _selectedTransaction.Status = "Cancelled";
+
+                        // ADDED: Instantly update the local model's audit properties so the UI reflects them
+                        _selectedTransaction.ModifiedBy = _activeUserId;
+                        _selectedTransaction.ModifiedOn = DateTime.Now;
+
+                        // CHANGED: Descriptive alert message upon successful cancellation
+                        LogAndNotify("Order Cancelled", $"Order {_selectedTransaction.ReceiptID} has been successfully cancelled.", true);
+
+                        LoadData(); SwitchView("Profile"); modal.Close();
+                    }
+                };
+
+                pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
+                modal.Controls.AddRange(new Control[] { iconWarning, lblWarn, lblDesc });
             }
+
             else if (type == "ReturnItem")
             {
-                modal.Size = new Size(500, 350);
-                Label lblT = new Label { Text = "Return Item", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(30, 30) };
-                Label lblS = new Label { Text = "Select item to return:", Font = new Font("Segoe UI", 9.5F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(30, 80) };
-                DarkComboBox cmbR = new DarkComboBox { Font = new Font("Segoe UI", 11F), Size = new Size(420, 35), Location = new Point(30, 105), DropDownStyle = ComboBoxStyle.DropDownList };
-                foreach (var item in _selectedTransaction.Items) cmbR.Items.Add($"{item.Description} ({item.SerialNumber})");
-                if (cmbR.Items.Count > 0) cmbR.SelectedIndex = 0;
-                Button btnUp = new Button { Text = "Attach Refund Proof", Size = new Size(160, 35), Location = new Point(30, 160), FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9F) };
-                btnUp.Click += (s, e) => { using (OpenFileDialog ofd = new OpenFileDialog()) { if (ofd.ShowDialog() == DialogResult.OK) { _attachController.UploadAttachment(null, ofd.FileName, _activeUserId, _selectedTransaction.ReceiptID); ShowToast("Refund proof attached.", true); } } };
-                Button btnRet = new Button { Text = "Confirm Return", Size = new Size(140, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(239, 68, 68), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(200, 160) };
-                btnRet.Click += (s, e) => { string sel = cmbR.Text; int pIdx = sel.LastIndexOf("("); if (pIdx >= 0) { string ser = sel.Substring(pIdx + 1).TrimEnd(')'); if (_salesController.ProcessReturn(ser, "Customer returned item", _activeUserId)) { _selectedTransaction.Status = "Returned"; _salesController.UpdateTransactionStatus(_selectedTransaction.ReceiptID, "Returned", _activeUserId); LogAndNotify("Item Returned", ser, true); LoadData(); SwitchView("Profile"); modal.Close(); } } };
-                modal.Controls.AddRange(new Control[] { lblT, lblS, cmbR, btnUp, btnRet });
+                // Increased height from 440 to 500 to fit the multi-select item list
+                modal.Size = new Size(550, 500);
+
+                IconPictureBox iconWarning = new IconPictureBox { IconChar = IconChar.Undo, IconColor = Color.FromArgb(245, 158, 11), IconSize = 60, Size = new Size(60, 60), Location = new Point((modal.Width - 60) / 2, 25) };
+
+                Label lblT = new Label { Text = "Process Item Return", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+                lblT.Location = new Point((modal.Width - lblT.PreferredWidth) / 2, 95);
+
+                Label lblDesc = new Label { Text = "Select the specific items below and attach proof\nof return or refund receipt.", Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
+                lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 130);
+
+                // CHANGED: Replaced the ComboBox with a bordered checklist panel
+                RoundedPanel wList = new RoundedPanel { Width = 450, Height = 140, BorderRadius = 4, BorderSize = 1, Padding = new Padding(10), BackColor = UITheme.CurrentInputBg, BorderColor = UITheme.CurrentBorder };
+                wList.Location = new Point((modal.Width - 450) / 2, 175);
+
+                FlowLayoutPanel flpItems = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent };
+                wList.Controls.Add(flpItems);
+
+                // Dynamically add a checkbox for every item in this transaction
+                List<CheckBox> chkItems = new List<CheckBox>();
+                foreach (var item in _selectedTransaction.Items)
+                {
+                    CheckBox chk = new CheckBox
+                    {
+                        Text = $"{item.Description} ({item.SerialNumber})",
+                        Font = new Font("Segoe UI", 10.5F),
+                        ForeColor = UITheme.CurrentText,
+                        AutoSize = true,
+                        Margin = new Padding(5, 5, 5, 10),
+                        Cursor = Cursors.Hand,
+                        Tag = item.SerialNumber // Hide the serial number in the tag for backend processing
+                    };
+                    chkItems.Add(chk);
+                    flpItems.Controls.Add(chk);
+                }
+
+                string pendingRefundProof = null;
+
+                Label lblFileName = new Label { Text = "No file attached.", Font = new Font("Segoe UI", 9F, FontStyle.Italic), ForeColor = UITheme.MutedText, AutoSize = false, Size = new Size(450, 20), TextAlign = ContentAlignment.MiddleCenter };
+                lblFileName.Location = new Point((modal.Width - 450) / 2, 380); // Pushed down to accommodate the list
+
+                IconButton btnUp = new IconButton { Text = " Attach Proof Document", IconChar = IconChar.Paperclip, IconSize = 16, Size = new Size(216, 38), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), TextImageRelation = TextImageRelation.ImageBeforeText, TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 10, 0) };
+                btnUp.Location = new Point((modal.Width - 216) / 2, 335); // Pushed down to accommodate the list
+                btnUp.BackColor = UITheme.CurrentInputBg;
+                btnUp.ForeColor = UITheme.CurrentText;
+                btnUp.IconColor = UITheme.CurrentText;
+                btnUp.FlatAppearance.BorderColor = UITheme.CurrentBorder;
+
+                btnUp.Click += (s, e) =>
+                {
+                    using (OpenFileDialog ofd = new OpenFileDialog())
+                    {
+                        if (ofd.ShowDialog() == DialogResult.OK)
+                        {
+                            pendingRefundProof = ofd.FileName;
+                            lblFileName.Text = "📄 " + System.IO.Path.GetFileName(pendingRefundProof);
+                            lblFileName.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+                            lblFileName.ForeColor = Color.FromArgb(16, 185, 129);
+
+                            lblFileName.Refresh();
+                            modal.Refresh();
+                        }
+                    }
+                };
+
+                Button btnCancel = new Button { Text = "Cancel", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnCancel.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnCancel.Click += (s, e) => modal.Close();
+
+                Button btnRet = new Button { Text = "Confirm Return", Size = new Size(140, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(239, 68, 68), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnRet.FlatAppearance.BorderSize = 0;
+
+                int totalW = btnCancel.Width + 10 + btnRet.Width;
+                btnCancel.Location = new Point((modal.Width - totalW) / 2, 16); btnRet.Location = new Point(((modal.Width - totalW) / 2) + btnCancel.Width + 10, 16);
+
+                // CHANGED: Process multi-item loop
+                btnRet.Click += (s, e) =>
+                {
+                    // Get all serial numbers where the cashier checked the box
+                    var selectedSerials = chkItems.Where(c => c.Checked).Select(c => c.Tag.ToString()).ToList();
+
+                    if (selectedSerials.Count == 0)
+                    {
+                        ShowToast("Please select at least one item to return.", false);
+                        return;
+                    }
+
+                    if (string.IsNullOrEmpty(pendingRefundProof))
+                    {
+                        ShowToast("Please attach a refund proof.", false);
+                        return;
+                    }
+
+                    bool success = true;
+
+                    // Loop through and return every selected item in the backend
+                    foreach (string ser in selectedSerials)
+                    {
+                        if (!_salesController.ProcessReturn(ser, "Customer returned item", _activeUserId))
+                        {
+                            success = false;
+                        }
+                    }
+
+                    if (success)
+                    {
+                        _attachController.UploadAttachment(null, pendingRefundProof, _activeUserId, _selectedTransaction.ReceiptID);
+
+                        _selectedTransaction.Status = "Returned";
+                        _salesController.UpdateTransactionStatus(_selectedTransaction.ReceiptID, "Returned", _activeUserId);
+
+                        // Instantly update local modified tracking
+                        _selectedTransaction.ModifiedBy = _activeUserId;
+                        _selectedTransaction.ModifiedOn = DateTime.Now;
+
+                        // Alerts the user exactly how many items were successfully returned
+                        LogAndNotify("Items Returned", $"Successfully processed return for {selectedSerials.Count} item(s).", true);
+
+                        LoadData(); SwitchView("Profile"); modal.Close();
+                    }
+                    else
+                    {
+                        ShowToast("Failed to process return for one or more items.", false);
+                    }
+                };
+
+                pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnRet });
+                modal.Controls.AddRange(new Control[] { iconWarning, lblT, lblDesc, wList, btnUp, lblFileName });
             }
-            modal.StartPosition = FormStartPosition.CenterParent; modal.ShowDialog();
+
+            else if (type == "CompleteOrder")
+            {
+                modal.Size = new Size(400, 280);
+                IconPictureBox iconInfo = new IconPictureBox { IconChar = IconChar.CheckCircle, IconColor = Color.FromArgb(16, 185, 129), IconSize = 60, Size = new Size(60, 60), Location = new Point((modal.Width - 60) / 2, 30) };
+
+                Label lblWarn = new Label { Text = "Complete Order?", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+                lblWarn.Location = new Point((modal.Width - lblWarn.PreferredWidth) / 2, 110);
+                Label lblDesc = new Label { Text = $"Are you sure you want to complete\n{_selectedTransaction.ReceiptID}?\nThis will finalize the transaction.", Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
+                lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 145);
+
+                Button btnCancel = new Button { Text = "Cancel", Size = new Size(110, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnCancel.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnCancel.Click += (s, e) => modal.Close();
+
+                Button btnAction = new Button { Text = "Complete Order", Size = new Size(150, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(16, 185, 129), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+                btnAction.FlatAppearance.BorderSize = 0;
+
+                int totalW = btnCancel.Width + 10 + btnAction.Width;
+                btnCancel.Location = new Point((modal.Width - totalW) / 2, 16); btnAction.Location = new Point(((modal.Width - totalW) / 2) + btnCancel.Width + 10, 16);
+
+                btnAction.Click += (s, e) =>
+                {
+                    if (_salesController.UpdateTransactionStatus(_selectedTransaction.ReceiptID, "Completed", _activeUserId))
+                    {
+                        _selectedTransaction.Status = "Completed";
+
+                        // Instantly update local modified tracking
+                        _selectedTransaction.ModifiedBy = _activeUserId;
+                        _selectedTransaction.ModifiedOn = DateTime.Now;
+
+                        LogAndNotify("Order Completed", $"Order {_selectedTransaction.ReceiptID} has been successfully completed.", true);
+
+                        LoadData(); SwitchView("Profile"); modal.Close();
+                    }
+                };
+
+                pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
+                modal.Controls.AddRange(new Control[] { iconInfo, lblWarn, lblDesc });
+            }
+
+
+            modal.Controls.Add(pnlFooter);
+
+            // ADDED: The beautiful black transparency overlay from Procurement
+            Form parent = this.FindForm();
+            Form overlay = new Form { StartPosition = FormStartPosition.Manual, Location = parent.PointToScreen(Point.Empty), Size = parent.ClientSize, BackColor = Color.Black, Opacity = 0.6, FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false };
+
+            overlay.Show();
+            modal.ShowDialog(overlay);
+            overlay.Dispose();
         }
 
         // =========================================================================
@@ -1119,28 +1611,107 @@ namespace SJ_PC_Store_SIMS.Views
         }
         private void Pd_PrintPage(object sender, PrintPageEventArgs e)
         {
-            Graphics g = e.Graphics; g.SmoothingMode = SmoothingMode.HighQuality; int y = 50;
-            Font fTitle = new Font("Arial", 24, FontStyle.Bold), fSub = new Font("Arial", 12, FontStyle.Bold), fN = new Font("Arial", 10), fB = new Font("Arial", 10, FontStyle.Bold);
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            int y = 50;
+
+            Font fTitle = new Font("Arial", 24, FontStyle.Bold);
+            Font fSub = new Font("Arial", 12, FontStyle.Bold);
+            Font fN = new Font("Arial", 10);
+            Font fB = new Font("Arial", 10, FontStyle.Bold);
+
+            // ---- LEFT SIDE: STORE DETAILS ----
             g.DrawString("SJ PC STORE", fTitle, Brushes.Black, 50, y); y += 40;
-            g.DrawString("McArthur Highway, Bocaue, Bulacan", fN, Brushes.DimGray, 50, y); y += 20;
-            g.DrawString("SALES INVOICE / RECEIPT", fTitle, Brushes.DarkBlue, 450, 50);
+            g.DrawString("McArthur Highway, Lolomboy Bocaue, Bulacan", fN, Brushes.DimGray, 50, y); y += 20;
+            g.DrawString("Phone: 09391814103", fN, Brushes.DimGray, 50, y);
+
+            // ---- RIGHT SIDE: DOCUMENT DETAILS ----
+            // Condition: Changes title to QUOTATION if status is Quotation
+            string docTitle = _selectedTransaction.Status.Equals("Quotation", StringComparison.OrdinalIgnoreCase) ? "QUOTATION" : "SALES INVOICE";
+            g.DrawString(docTitle, fTitle, Brushes.DarkBlue, 450, 50);
+
             g.DrawString($"Receipt ID: {_selectedTransaction.ReceiptID}", fSub, Brushes.Black, 450, 90);
             g.DrawString($"Date: {_selectedTransaction.OrderDate:MMM dd, yyyy}", fN, Brushes.Black, 450, 110);
             g.DrawString($"Status: {_selectedTransaction.Status.ToUpper()}", fB, Brushes.DarkBlue, 450, 130);
-            y += 50; g.DrawLine(Pens.Black, 50, y, 770, y); y += 30;
+            g.DrawString($"Warranty: {_selectedTransaction.WarrantyDays} Days", fN, Brushes.Black, 450, 150);
+
+            // Condition: Show Transaction Number only if it's Online Payment
+            if (_selectedTransaction.PaymentMethod == "Online Payment" && !string.IsNullOrEmpty(_selectedTransaction.TransactionNumber))
+            {
+                g.DrawString($"Ref No: {_selectedTransaction.TransactionNumber}", fN, Brushes.Black, 450, 170);
+            }
+
+            // ---- CUSTOMER DETAILS ----
+            // Move Y down safely below the header block before drawing the line
+            y = 210;
+            g.DrawLine(Pens.Black, 50, y, 770, y); y += 30;
+
             g.DrawString("CUSTOMER:", fSub, Brushes.DarkBlue, 50, y); y += 25;
             g.DrawString(_selectedTransaction.CustomerName, fB, Brushes.Black, 50, y); y += 20;
-            g.DrawString($"Payment: {_selectedTransaction.PaymentMethod}", fN, Brushes.Black, 50, y); y += 40;
+            g.DrawString($"Payment Method: {_selectedTransaction.PaymentMethod}", fN, Brushes.Black, 50, y); y += 40;
+
+            // ---- ITEM TABLE HEADER ----
             g.FillRectangle(Brushes.DarkBlue, 50, y, 720, 30);
-            g.DrawString("ITEM NAME", fB, Brushes.White, 60, y + 7); g.DrawString("SERIAL", fB, Brushes.White, 350, y + 7);
-            g.DrawString("QTY", fB, Brushes.White, 500, y + 7); g.DrawString("PRICE", fB, Brushes.White, 560, y + 7); g.DrawString("TOTAL", fB, Brushes.White, 680, y + 7); y += 40;
-            foreach (var item in _selectedTransaction.Items) { g.DrawString(item.Description.Length > 30 ? item.Description.Substring(0, 30) + "..." : item.Description, fN, Brushes.Black, 60, y); g.DrawString(item.SerialNumber, fN, Brushes.Black, 350, y); g.DrawString(item.Quantity.ToString(), fN, Brushes.Black, 500, y); g.DrawString(item.UnitPrice.ToString("N2"), fN, Brushes.Black, 560, y); g.DrawString(item.TotalAmount.ToString("N2"), fN, Brushes.Black, 680, y); y += 30; }
+            g.DrawString("ITEM NAME", fB, Brushes.White, 60, y + 7);
+
+            // Shifted QTY and PRICE to the right to fill the space left by the removed TOTAL column
+            g.DrawString("QTY", fB, Brushes.White, 560, y + 7);
+            g.DrawString("UNIT PRICE", fB, Brushes.White, 650, y + 7);
+            y += 40;
+
+            // ---- ITEM TABLE ROWS ----
+            // Condition: Check if this is a quotation
+            bool isQuotation = _selectedTransaction.Status.Equals("Quotation", StringComparison.OrdinalIgnoreCase);
+
+            foreach (var item in _selectedTransaction.Items)
+            {
+                string desc = item.Description.Length > 45 ? item.Description.Substring(0, 45) + "..." : item.Description;
+                g.DrawString(desc, fN, Brushes.Black, 60, y);
+
+                // Show serial number ONLY if it is an actual Order/Sale, hide if Quotation
+                if (!isQuotation)
+                {
+                    g.DrawString($"SN: {item.SerialNumber}", new Font("Arial", 8, FontStyle.Italic), Brushes.DimGray, 60, y + 15);
+                }
+
+                g.DrawString(item.Quantity.ToString(), fN, Brushes.Black, 560, y);
+                g.DrawString(item.UnitPrice.ToString("N2"), fN, Brushes.Black, 650, y);
+
+                y += 30;
+            }
+
+            y += 10;
+
             g.DrawLine(Pens.Gray, 50, y, 770, y); y += 20;
-            g.DrawString("Subtotal:", fN, Brushes.DimGray, 560, y); g.DrawString(_selectedTransaction.SubTotal.ToString("C2"), fN, Brushes.Black, 680, y); y += 25;
-            g.DrawString("Discount:", fN, Brushes.DimGray, 560, y); g.DrawString($"-{_selectedTransaction.Discount:C2}", fN, Brushes.Red, 680, y); y += 25;
-            g.DrawString("Tax:", fN, Brushes.DimGray, 560, y); g.DrawString($"{_selectedTransaction.Tax:C2}", fN, Brushes.Black, 680, y); y += 25;
-            g.DrawString("GRAND TOTAL:", fSub, Brushes.DarkBlue, 520, y); g.DrawString(_selectedTransaction.GrandTotal.ToString("C2"), fSub, Brushes.Black, 680, y);
-            y = 1000; g.DrawLine(Pens.Black, 50, y, 250, y); g.DrawString("Authorized Signature", fN, Brushes.DimGray, 90, y + 10);
+
+            // ---- TOTALS ----
+            g.DrawString("Subtotal:", fN, Brushes.DimGray, 560, y);
+            g.DrawString(_selectedTransaction.SubTotal.ToString("C2"), fN, Brushes.Black, 680, y); y += 25;
+
+            g.DrawString("Discount:", fN, Brushes.DimGray, 560, y);
+            g.DrawString($"-{_selectedTransaction.Discount:C2}", fN, Brushes.Red, 680, y); y += 25;
+
+            g.DrawString("Tax:", fN, Brushes.DimGray, 560, y);
+            g.DrawString($"{_selectedTransaction.Tax:C2}", fN, Brushes.Black, 680, y); y += 25;
+
+            g.DrawString("GRAND TOTAL:", fSub, Brushes.DarkBlue, 520, y);
+            g.DrawString(_selectedTransaction.GrandTotal.ToString("C2"), fSub, Brushes.Black, 680, y);
+
+            // ---- TERMS AND CONDITIONS ----
+            y += 50;
+            g.DrawString("Terms & Conditions:", fSub, Brushes.DarkBlue, 50, y); y += 25;
+            g.DrawString("1. All sales are final. Items can only be returned or exchanged within 7 days with original receipt.", fN, Brushes.Black, 50, y); y += 20;
+            g.DrawString("2. Physical damage, liquid damage, or unauthorized repairs void the warranty.", fN, Brushes.Black, 50, y); y += 20;
+            g.DrawString("3. Quotations are strictly valid for 30 days from the date of issue.", fN, Brushes.Black, 50, y);
+
+            // ---- SIGNATURES ----
+            y = 1000;
+            g.DrawLine(Pens.Black, 50, y, 250, y);
+            g.DrawString("Authorized Signature", fN, Brushes.DimGray, 90, y + 10);
+
+            // Added a customer signature line for professional symmetry
+            g.DrawLine(Pens.Black, 520, y, 720, y);
+            g.DrawString("Customer Signature", fN, Brushes.DimGray, 560, y + 10);
         }
 
         // =========================================================================
@@ -1204,8 +1775,22 @@ namespace SJ_PC_Store_SIMS.Views
             {
                 string tag = btn.Tag?.ToString() ?? "";
                 if (tag == "ActionAdd") { btn.BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark; btn.ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White; btn.FlatAppearance.MouseOverBackColor = UITheme.IsDarkMode ? Color.FromArgb(255, 230, 120) : UITheme.SecondaryDark; }
-                else if (tag == "Danger") { btn.BackColor = Color.FromArgb(25, 239, 68, 68); btn.ForeColor = Color.FromArgb(239, 68, 68); btn.FlatAppearance.BorderColor = Color.FromArgb(239, 68, 68); btn.FlatAppearance.BorderSize = 1; btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 68, 68); }
-                else if (tag == "Success") { btn.BackColor = Color.FromArgb(25, 16, 185, 129); btn.ForeColor = Color.FromArgb(16, 185, 129); btn.FlatAppearance.BorderColor = Color.FromArgb(16, 185, 129); btn.FlatAppearance.BorderSize = 1; btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(16, 185, 129); }
+                else if (tag == "Danger")
+                {
+                    btn.BackColor = Color.FromArgb(239, 68, 68); // Solid Red
+                    btn.ForeColor = Color.White;
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(239, 68, 68);
+                    btn.FlatAppearance.BorderSize = 0;
+                    btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 38, 38); // Darker red hover
+                }
+                else if (tag == "Success")
+                {
+                    btn.BackColor = Color.FromArgb(16, 185, 129); // Solid Green
+                    btn.ForeColor = Color.White;
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(16, 185, 129);
+                    btn.FlatAppearance.BorderSize = 0;
+                    btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(5, 150, 105); // Darker green hover
+                }
                 else if (tag == "Secondary") { btn.BackColor = Color.Transparent; btn.ForeColor = UITheme.CurrentText; btn.FlatAppearance.BorderSize = 1; btn.FlatAppearance.BorderColor = UITheme.CurrentBorder; btn.FlatAppearance.MouseOverBackColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.FromArgb(230, 230, 230); }
                 else { btn.BackColor = UITheme.CurrentPanel; btn.ForeColor = UITheme.CurrentText; btn.FlatAppearance.MouseOverBackColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.FromArgb(230, 230, 230); }
                 btn.IconColor = btn.ForeColor; btn.FlatAppearance.MouseDownBackColor = btn.BackColor;
@@ -1217,22 +1802,39 @@ namespace SJ_PC_Store_SIMS.Views
 
             if (dgvSalesList != null)
             {
-                dgvSalesList.BackgroundColor = UITheme.CurrentPanel; dgvSalesList.GridColor = UITheme.CurrentBorder;
+                dgvSalesList.BackgroundColor = UITheme.CurrentPanel;
+                dgvSalesList.GridColor = UITheme.CurrentBorder;
                 dgvSalesList.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-                dgvSalesList.DefaultCellStyle.BackColor = UITheme.CurrentPanel; dgvSalesList.DefaultCellStyle.ForeColor = UITheme.CurrentText;
+
+                dgvSalesList.DefaultCellStyle.BackColor = UITheme.CurrentPanel;
+                dgvSalesList.DefaultCellStyle.ForeColor = UITheme.CurrentText;
+
+                // CHANGED: Replicate dgvCartItems by hiding the selection colors completely
                 dgvSalesList.DefaultCellStyle.SelectionBackColor = UITheme.IsDarkMode ? Color.FromArgb(60, 58, 65) : Color.FromArgb(220, 230, 240);
                 dgvSalesList.DefaultCellStyle.SelectionForeColor = UITheme.CurrentText;
+
                 dgvSalesList.ColumnHeadersDefaultCellStyle.BackColor = UITheme.IsDarkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234);
                 dgvSalesList.ColumnHeadersDefaultCellStyle.ForeColor = UITheme.CurrentText;
+
+                // CHANGED: Added this to prevent column headers from flashing blue when clicked
+                dgvSalesList.ColumnHeadersDefaultCellStyle.SelectionBackColor = dgvSalesList.ColumnHeadersDefaultCellStyle.BackColor;
             }
             if (dgvProfileItems != null)
             {
-                dgvProfileItems.BackgroundColor = UITheme.CurrentInputBg; dgvProfileItems.GridColor = UITheme.CurrentBorder;
-                dgvProfileItems.DefaultCellStyle.BackColor = UITheme.CurrentInputBg; dgvProfileItems.DefaultCellStyle.ForeColor = UITheme.CurrentText;
-                dgvProfileItems.DefaultCellStyle.SelectionBackColor = UITheme.IsDarkMode ? Color.FromArgb(60, 58, 65) : Color.FromArgb(220, 230, 240);
-                dgvProfileItems.DefaultCellStyle.SelectionForeColor = UITheme.CurrentText;
-                dgvProfileItems.ColumnHeadersDefaultCellStyle.BackColor = UITheme.CurrentInputBg;
+                // Fixes the dark gray empty background area
+                dgvProfileItems.BackgroundColor = UITheme.CurrentPanel;
+                dgvProfileItems.GridColor = UITheme.CurrentBorder;
+
+                // Fixes the row colors and explicitly hides selection colors
+                dgvProfileItems.DefaultCellStyle.BackColor = UITheme.CurrentPanel;
+                dgvProfileItems.DefaultCellStyle.ForeColor = UITheme.CurrentText;
+                dgvProfileItems.DefaultCellStyle.SelectionBackColor = UITheme.CurrentPanel; // Hides selection
+                dgvProfileItems.DefaultCellStyle.SelectionForeColor = UITheme.CurrentText;  // Hides selection
+
+                // Fixes the bright blue header to match the clean PO header
+                dgvProfileItems.ColumnHeadersDefaultCellStyle.BackColor = UITheme.IsDarkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234);
                 dgvProfileItems.ColumnHeadersDefaultCellStyle.ForeColor = UITheme.CurrentText;
+                dgvProfileItems.ColumnHeadersDefaultCellStyle.SelectionBackColor = dgvProfileItems.ColumnHeadersDefaultCellStyle.BackColor;
             }
             if (profileStepper != null) profileStepper.Invalidate();
             if (dtpOrderDate != null) dtpOrderDate.ApplyTheme(UITheme.IsDarkMode);
