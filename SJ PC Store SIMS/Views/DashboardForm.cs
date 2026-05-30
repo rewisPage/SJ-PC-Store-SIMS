@@ -1,12 +1,8 @@
-﻿using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Windows.Forms;
-using FontAwesome.Sharp;
-using SJ_PC_Store_SIMS.Utils;
-using SJ_PC_Store_SIMS.Models;
+﻿using FontAwesome.Sharp;
 using SJ_PC_Store_SIMS.Controllers;
-using System.Collections.Generic;
+using SJ_PC_Store_SIMS.Models;
+using SJ_PC_Store_SIMS.Utils;
+using System.Drawing.Drawing2D;
 using Panel = System.Windows.Forms.Panel;
 
 namespace SJ_PC_Store_SIMS.Views
@@ -82,7 +78,7 @@ namespace SJ_PC_Store_SIMS.Views
         {
             this.WindowState = FormWindowState.Maximized;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.None;    
+            this.FormBorderStyle = FormBorderStyle.None;
             this.Text = "SJ PC Store - Master Dashboard";
 
             // --- SIDEBAR (Left) --- 
@@ -92,7 +88,8 @@ namespace SJ_PC_Store_SIMS.Views
             logoIcon = new IconPictureBox { IconChar = IconChar.Microchip, IconColor = UITheme.AccentYellow, IconSize = 36, Size = new Size(36, 36), Location = new Point(12, 17), BackColor = Color.Transparent };
             lblBrandText = new Label { Text = "SJ PC Store", Font = new Font("Segoe UI", 15F, FontStyle.Bold), ForeColor = UITheme.AccentYellow, AutoSize = true, Location = new Point(55, 20), BackColor = Color.Transparent };
 
-            pnlBrand.Paint += (s, e) => {
+            pnlBrand.Paint += (s, e) =>
+            {
                 using (Pen pen = new Pen(Color.FromArgb(25, 255, 255, 255), 1)) { e.Graphics.DrawLine(pen, 0, 69, pnlBrand.Width, 69); }
             };
             pnlBrand.Controls.AddRange(new Control[] { logoIcon, lblBrandText });
@@ -104,7 +101,7 @@ namespace SJ_PC_Store_SIMS.Views
             IconButton btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
             IconButton btnProc = CreateNavButton("Procurement", IconChar.TruckLoading, false);
             IconButton btnData = CreateNavButton("Data Management", IconChar.Database, false);
-            IconButton btnReports = CreateNavButton("Reports & Analytics", IconChar.ChartLine, false);
+            IconButton btnReports = CreateNavButton("Report Center", IconChar.ChartLine, false);
             IconButton btnUsers = CreateNavButton("User Management", IconChar.Users, false);
             IconButton btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
             IconButton btnSettings = CreateNavButton("Settings", IconChar.Cog, false);
@@ -114,12 +111,14 @@ namespace SJ_PC_Store_SIMS.Views
             btnData.Click += (s, e) => { lblPageTitle.Text = "Data Management (Suppliers)"; LoadUserControl(new DataManagementView(_currentUser.UserID)); SetActiveNavButton(btnData); };
             btnProc.Click += (s, e) => { lblPageTitle.Text = "Procurement Management"; LoadUserControl(new ProcurementView(_currentUser.UserID)); SetActiveNavButton(btnProc); };
             btnPOS.Click += (s, e) => { lblPageTitle.Text = "Sales Management"; LoadUserControl(new SalesView(_currentUser.UserID)); SetActiveNavButton(btnPOS); };
+            btnReports.Click += (s, e) => { lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID)); SetActiveNavButton(btnReports); };
 
             _adminOnlyControls.AddRange(new Control[] { btnInv, btnProc, btnData, btnReports, btnUsers, btnSettings });
             flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings });
 
             BufferedPanel pnlFooter = new BufferedPanel { Dock = DockStyle.Bottom, Height = 70, BackColor = Color.Transparent };
-            pnlFooter.Paint += (s, e) => {
+            pnlFooter.Paint += (s, e) =>
+            {
                 using (Pen pen = new Pen(Color.FromArgb(25, 255, 255, 255), 1)) { e.Graphics.DrawLine(pen, 0, 0, pnlFooter.Width, 0); }
             };
 
@@ -167,7 +166,8 @@ namespace SJ_PC_Store_SIMS.Views
             };
 
             pnlBadge = new BufferedPanel { Size = new Size(12, 12), Location = new Point(306, 14), BackColor = Color.Transparent, Visible = false };
-            pnlBadge.Paint += (s, e) => {
+            pnlBadge.Paint += (s, e) =>
+            {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (SolidBrush brush = new SolidBrush(Color.FromArgb(239, 68, 68))) { e.Graphics.FillEllipse(brush, 1, 1, 10, 10); }
             };
@@ -190,7 +190,8 @@ namespace SJ_PC_Store_SIMS.Views
 
             pnlHeaderRight.Controls.AddRange(new Control[] { pnlBadge, btnNotifications, lblClock, btnThemeToggle, lblUserName, lblUserRole, avatarIcon });
 
-            pnlHeader.Paint += (s, e) => {
+            pnlHeader.Paint += (s, e) =>
+            {
                 using (Pen pen = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(pen, 0, 69, pnlHeader.Width, 69); }
             };
             pnlHeader.Controls.AddRange(new Control[] { btnHamburger, lblPageTitle, pnlHeaderRight });
@@ -406,7 +407,8 @@ namespace SJ_PC_Store_SIMS.Views
         {
             BufferedPanel pnlItem = new BufferedPanel { Size = new Size(410, 95), Margin = new Padding(15, 5, 10, 5) };
 
-            pnlItem.Paint += (s, e) => {
+            pnlItem.Paint += (s, e) =>
+            {
                 using (Pen pen = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(pen, 5, 94, pnlItem.Width - 5, 94); }
             };
 
@@ -466,7 +468,8 @@ namespace SJ_PC_Store_SIMS.Views
             BufferedPanel pnl = new BufferedPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(0, 0, 0, 20) };
             Label lblTitle = new Label { Text = title, Font = new Font("Segoe UI", 10F, FontStyle.Bold), AutoSize = true, Location = new Point(0, 0) };
 
-            pnl.Paint += (s, e) => {
+            pnl.Paint += (s, e) =>
+            {
                 using (Pen pen = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(pen, 0, 25, pnl.Width, 25); }
             };
 

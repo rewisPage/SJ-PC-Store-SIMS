@@ -504,7 +504,24 @@ namespace SJ_PC_Store_SIMS.Views
 
         private SmoothGrid CreateDataGridView()
         {
-            return new SmoothGrid { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, CellBorderStyle = DataGridViewCellBorderStyle.Single, ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single, EnableHeadersVisualStyles = false, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false, ReadOnly = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 50, RowTemplate = { Height = 55 }, Cursor = Cursors.Hand };
+            return new SmoothGrid
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.None,
+                CellBorderStyle = DataGridViewCellBorderStyle.Single,
+                ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single,
+                EnableHeadersVisualStyles = false,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                ColumnHeadersHeight = 50,
+                RowTemplate = { Height = 55 },
+                Cursor = Cursors.Hand
+            };
         }
 
         private void DgvCatalog_CellMouseMove(object sender, DataGridViewCellMouseEventArgs e)
