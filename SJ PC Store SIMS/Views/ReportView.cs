@@ -73,7 +73,14 @@ namespace SJ_PC_Store_SIMS.Views
         private class TabButton : IconButton
         {
             public bool IsActive { get; set; } = false;
-            public TabButton() { this.SetStyle(ControlStyles.SupportsTransparentBackColor, true); this.BackColor = Color.Transparent; this.FlatStyle = FlatStyle.Flat; this.FlatAppearance.BorderSize = 0; this.Cursor = Cursors.Hand; }
+            public TabButton()
+            {
+                this.SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+                this.BackColor = Color.Transparent;
+                this.FlatStyle = FlatStyle.Flat;
+                this.FlatAppearance.BorderSize = 0;
+                this.Cursor = Cursors.Hand;
+            }
             protected override void OnPaint(PaintEventArgs e)
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -719,7 +726,19 @@ namespace SJ_PC_Store_SIMS.Views
 
         private TabButton CreateTab(string text, IconChar icon)
         {
-            return new TabButton { Text = "  " + text, IconChar = icon, IconSize = 22, Size = new Size(250, 52), Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleCenter, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText, Font = new Font("Segoe UI", 11F, FontStyle.Bold), Padding = new Padding(20, 0, 0, 0) };
+            return new TabButton
+            {
+                Text = "  " + text,
+                IconChar = icon,
+                IconSize = 22,
+                Size = new Size(250, 52),
+                Dock = DockStyle.Left,
+                TextAlign = ContentAlignment.MiddleCenter,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                Padding = new Padding(20, 0, 0, 0)
+            };
         }
 
         private Control CreateInputWrapper(Control innerControl, int width)
@@ -853,6 +872,11 @@ namespace SJ_PC_Store_SIMS.Views
             btnTabInventory.FlatAppearance.MouseOverBackColor = hoverColor;
             btnTabProcurement.FlatAppearance.MouseOverBackColor = hoverColor;
             btnTabStocks.FlatAppearance.MouseOverBackColor = hoverColor;
+
+            btnTabSales.BackColor = btnTabSales.IsActive ? UITheme.CurrentPanel : Color.Transparent;
+            btnTabInventory.BackColor = btnTabInventory.IsActive ? UITheme.CurrentPanel : Color.Transparent;
+            btnTabProcurement.BackColor = btnTabProcurement.IsActive ? UITheme.CurrentPanel : Color.Transparent;
+            btnTabStocks.BackColor = btnTabStocks.IsActive ? UITheme.CurrentPanel : Color.Transparent;
 
             btnTabSales.ForeColor = btnTabSales.IsActive ? (UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark) : UITheme.MutedText; btnTabSales.IconColor = btnTabSales.ForeColor;
             btnTabInventory.ForeColor = btnTabInventory.IsActive ? (UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark) : UITheme.MutedText; btnTabInventory.IconColor = btnTabInventory.ForeColor;
