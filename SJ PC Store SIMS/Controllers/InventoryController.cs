@@ -7,19 +7,25 @@ namespace SJ_PC_Store_SIMS.Controllers
 {
     public class InventoryController
     {
-        public void LogActivity(string userId, string action)
+        public void LogActivity(string userId, string action, string category)
         {
             try
             {
                 using (SqlConnection conn = DatabaseHelper.GetConnection())
                 {
-                    SqlCommand cmd = new SqlCommand("INSERT INTO ACTIVITY_LOG (UserID, ActionDescription) VALUES (@U, @A)", conn);
+                    // Added ModuleCategory to the INSERT statement
+                    string query = "INSERT INTO ACTIVITY_LOG (UserID, ActionDescription, ModuleCategory) VALUES (@U, @A, @C)";
+                    SqlCommand cmd = new SqlCommand(query, conn);
+
                     cmd.Parameters.AddWithValue("@U", userId);
                     cmd.Parameters.AddWithValue("@A", action);
-                    conn.Open(); cmd.ExecuteNonQuery();
+                    cmd.Parameters.AddWithValue("@C", category); // New Category Parameter
+
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
                 }
             }
-            catch { }
+            catch { } // Fails silently to prevent interrupting the main business logic
         }
 
         public string GenerateNextItemCode()
@@ -234,7 +240,7 @@ namespace SJ_PC_Store_SIMS.Controllers
 
         public bool RecoverStock(string serialNumber, string userId)
         {
-            LogActivity(userId, $"Recovered returned stock: {serialNumber}");
+            LogActivity(userId, $"Recovered returned stock: {serialNumber}", "Inventory");
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
                 // Resets the status to Available and strips out the defect reason
@@ -276,7 +282,7 @@ namespace SJ_PC_Store_SIMS.Controllers
 
         public bool HardDeleteBlueprint(string itemCode, string userId)
         {
-            LogActivity(userId, $"Permanently deleted blueprint: {itemCode}");
+            LogActivity(userId, $"Permanently deleted blueprint: {itemCode}", "Inventory");
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
                 conn.Open();

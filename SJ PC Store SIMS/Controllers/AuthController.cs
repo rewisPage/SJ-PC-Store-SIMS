@@ -1,7 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
-using System;
 
 namespace SJ_PC_Store_SIMS.Controllers
 {
@@ -67,17 +66,29 @@ namespace SJ_PC_Store_SIMS.Controllers
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
                 conn.Open();
+
+                // Ensure the Administrator role exists first to satisfy the Foreign Key
+                string checkRoleQuery = "SELECT COUNT(1) FROM [ROLE] WHERE RoleName = 'Administrator'";
+                using (SqlCommand checkRoleCmd = new SqlCommand(checkRoleQuery, conn))
+                {
+                    if (Convert.ToInt32(checkRoleCmd.ExecuteScalar()) == 0)
+                    {
+                        string insertRoleQuery = "INSERT INTO [ROLE] (RoleName, CanManageUsers, CanManageInventory, CanProcessSales, CanManageProcurement, CanViewReports, CanManageData) VALUES ('Administrator', 1, 1, 1, 1, 1, 1)";
+                        using (SqlCommand insertRoleCmd = new SqlCommand(insertRoleQuery, conn)) { insertRoleCmd.ExecuteNonQuery(); }
+                    }
+                }
+
                 string checkQuery = "SELECT COUNT(1) FROM [USER]";
                 using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
                 {
                     if (Convert.ToInt32(checkCmd.ExecuteScalar()) == 0)
                     {
-                        string insertQuery = @"INSERT INTO [USER] (UserID, FirstName, LastName, ContactNumber, Username, PasswordHash, Role, Passkey, Status) 
-                                               VALUES (@ID, 'System', 'Admin', '00000000000', 'admin', @Hash, 'Administrator', 'A1B2C3', 'Active')";
+                        string insertQuery = @"INSERT INTO [USER] (UserID, FirstName, LastName, ContactNumber, Username, PasswordHash, Role, Passkey, Status, CreatedTime) 
+                                       VALUES (@ID, 'System', 'Admin', '00000000000', 'admin', @Hash, 'Administrator', 'A1B2C3', 'Active', GETDATE())";
                         using (SqlCommand insertCmd = new SqlCommand(insertQuery, conn))
                         {
                             insertCmd.Parameters.AddWithValue("@ID", "USR-" + DateTime.Now.Ticks.ToString().Substring(0, 8));
-                            insertCmd.Parameters.AddWithValue("@Hash", BCrypt.Net.BCrypt.HashPassword("admin123")); // Default password is admin123
+                            insertCmd.Parameters.AddWithValue("@Hash", BCrypt.Net.BCrypt.HashPassword("admin123"));
                             insertCmd.ExecuteNonQuery();
                         }
                     }

@@ -1,6 +1,4 @@
 ﻿using Microsoft.Data.SqlClient;
-using System;
-using System.Collections.Generic;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
 
@@ -8,21 +6,25 @@ namespace SJ_PC_Store_SIMS.Controllers
 {
     public class SalesController
     {
-        public void LogActivity(string userId, string action)
+        public void LogActivity(string userId, string action, string category)
         {
             try
             {
-                using (var conn = DatabaseHelper.GetConnection())
+                using (SqlConnection conn = DatabaseHelper.GetConnection())
                 {
-                    var cmd = new SqlCommand(
-                        "INSERT INTO ACTIVITY_LOG (UserID, ActionDescription) VALUES (@U, @A)", conn);
+                    // Added ModuleCategory to the INSERT statement
+                    string query = "INSERT INTO ACTIVITY_LOG (UserID, ActionDescription, ModuleCategory) VALUES (@U, @A, @C)";
+                    SqlCommand cmd = new SqlCommand(query, conn);
+
                     cmd.Parameters.AddWithValue("@U", userId);
                     cmd.Parameters.AddWithValue("@A", action);
+                    cmd.Parameters.AddWithValue("@C", category); // New Category Parameter
+
                     conn.Open();
                     cmd.ExecuteNonQuery();
                 }
             }
-            catch { }
+            catch { } // Fails silently to prevent interrupting the main business logic
         }
 
         public string GenerateNextReceiptID()
