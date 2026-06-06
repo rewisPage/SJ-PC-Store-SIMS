@@ -173,7 +173,7 @@ namespace SJ_PC_Store_SIMS.Views
         // =========================================================================
         private void LogAndNotify(string title, string message, bool isSuccess = true)
         {
-            _inventoryController.LogActivity(_activeUserId, $"{title} - {message}");
+            _inventoryController.LogActivity(_activeUserId, $"{title} - {message}", "Inventory");
 
             if (this.FindForm() is DashboardForm dash)
             {
