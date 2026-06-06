@@ -197,3 +197,40 @@ ALTER TABLE ATTACHMENTS ALTER COLUMN PO_Number VARCHAR(50) NULL;
 -- Add TransactionID column for Sales attachments
 ALTER TABLE ATTACHMENTS ADD TransactionID VARCHAR(50) NULL;
 ALTER TABLE ATTACHMENTS ADD CONSTRAINT FK_Attachments_Transaction FOREIGN KEY (TransactionID) REFERENCES [TRANSACTION](ReceiptID);
+
+
+
+-- 1. Create the Dynamic Roles Table
+CREATE TABLE [ROLE] (
+    RoleName VARCHAR(20) PRIMARY KEY,
+    CanManageUsers BIT DEFAULT 0,
+    CanManageInventory BIT DEFAULT 0,
+    CanProcessSales BIT DEFAULT 0,
+    CanManageProcurement BIT DEFAULT 0,
+    CanViewReports BIT DEFAULT 0,
+    CanManageData BIT DEFAULT 0,
+    IsActive BIT DEFAULT 1
+);
+GO
+
+-- Insert default System Roles
+INSERT INTO [ROLE] (RoleName, CanManageUsers, CanManageInventory, CanProcessSales, CanManageProcurement, CanViewReports, CanManageData)
+VALUES 
+('Administrator', 1, 1, 1, 1, 1, 1),
+('Cashier', 0, 0, 1, 0, 0, 0);
+GO
+
+-- 2. Update USER Table (Audit trails & Role Foreign Key)
+ALTER TABLE [USER] ADD
+    CreatedBy VARCHAR(20) NULL FOREIGN KEY REFERENCES [USER](UserID),
+    CreatedTime DATETIME DEFAULT GETDATE(),
+    ModifiedBy VARCHAR(20) NULL FOREIGN KEY REFERENCES [USER](UserID),
+    LastModifiedTime DATETIME NULL;
+GO
+
+ALTER TABLE [USER] ADD CONSTRAINT FK_User_Role FOREIGN KEY (Role) REFERENCES [ROLE](RoleName);
+GO
+
+-- 3. Update ACTIVITY_LOG Table
+ALTER TABLE ACTIVITY_LOG ADD ModuleCategory VARCHAR(50) NULL;
+GO
