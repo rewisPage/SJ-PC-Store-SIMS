@@ -2,14 +2,9 @@
 using SJ_PC_Store_SIMS.Controllers;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Printing;
-using System.Linq;
 using System.Reflection;
-using System.Windows.Forms;
 using Button = System.Windows.Forms.Button;
 using ComboBox = System.Windows.Forms.ComboBox;
 using Control = System.Windows.Forms.Control;
@@ -351,7 +346,7 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void LogAndNotify(string title, string message, bool isSuccess)
         {
-            _procController.LogActivity(_activeUserId, $"{title} - {message}");
+            _procController.LogActivity(_activeUserId, $"{title} - {message}", "Procurement");
             if (this.FindForm() is DashboardForm dash)
             {
                 dash.AddNotification(title, message, isSuccess);
@@ -369,7 +364,8 @@ namespace SJ_PC_Store_SIMS.Views
             int toastWidth = Math.Max(320, lbl.PreferredWidth + 80);
             Form toast = new Form { StartPosition = FormStartPosition.Manual, FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, Size = new Size(toastWidth, 60), TopMost = true, ShowInTaskbar = false };
             toast.Location = new Point(parent.Right - toastWidth - 20, parent.Bottom - 80);
-            toast.Paint += (s, e) => {
+            toast.Paint += (s, e) =>
+            {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = new GraphicsPath())
                 {
@@ -482,16 +478,22 @@ namespace SJ_PC_Store_SIMS.Views
 
             toolbar.Controls.AddRange(new Control[] { cmbFilter, searchWrapper, btnCreate });
 
-            dgvPOList = new SmoothGrid { 
+            dgvPOList = new SmoothGrid
+            {
                 BorderStyle = BorderStyle.None,
                 Dock = DockStyle.Fill,
-                ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None, 
-                EnableHeadersVisualStyles = false, AllowUserToAddRows = false, 
-                ReadOnly = true, 
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect, 
-                RowHeadersVisible = false, AutoSizeColumnsMode = 
-                DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeight = 60, 
-                RowTemplate = { Height = 60 }, Cursor = Cursors.Hand };
+                ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
+                EnableHeadersVisualStyles = false,
+                AllowUserToAddRows = false,
+                ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode =
+                DataGridViewAutoSizeColumnsMode.Fill,
+                ColumnHeadersHeight = 60,
+                RowTemplate = { Height = 60 },
+                Cursor = Cursors.Hand
+            };
 
 
             dgvPOList.Columns.Add("PO", "PO NUMBER"); dgvPOList.Columns.Add("Sup", "SUPPLIER NAME"); dgvPOList.Columns.Add("Date", "ORDER DATE"); dgvPOList.Columns.Add("Total", "TOTAL AMOUNT"); dgvPOList.Columns.Add("Status", "STATUS");
@@ -520,7 +522,8 @@ namespace SJ_PC_Store_SIMS.Views
             // Explicitly force all advanced borders to None to guarantee no lines render
             dgvPOList.AdvancedCellBorderStyle.All = DataGridViewAdvancedCellBorderStyle.None;
 
-            dgvPOList.Paint += (s, e) => {
+            dgvPOList.Paint += (s, e) =>
+            {
                 using (Pen p = new Pen(UITheme.CurrentBorder, 0)) { e.Graphics.DrawLine(p, 0, 59, dgvPOList.Width, 59); } // Header line
                 if (dgvPOList.Rows.Count == 0) // Empty state text
                 {
@@ -530,7 +533,8 @@ namespace SJ_PC_Store_SIMS.Views
 
             dgvPOList.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
 
-            dgvPOList.Paint += (s, e) => {
+            dgvPOList.Paint += (s, e) =>
+            {
                 using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawLine(p, 0, 59, dgvPOList.Width, 59); }
                 if (dgvPOList.Rows.Count == 0)
                 {
@@ -539,7 +543,8 @@ namespace SJ_PC_Store_SIMS.Views
             };
 
             // Dynamically colors the text in the Status column without breaking grid borders
-            dgvPOList.CellFormatting += (s, e) => {
+            dgvPOList.CellFormatting += (s, e) =>
+            {
                 // Check if we are in a valid row and looking at the "Status" column
                 if (e.RowIndex >= 0 && e.ColumnIndex == dgvPOList.Columns["Status"].Index && e.Value != null)
                 {
@@ -565,7 +570,8 @@ namespace SJ_PC_Store_SIMS.Views
                 }
             };
 
-            dgvPOList.CellMouseClick += (s, e) => {
+            dgvPOList.CellMouseClick += (s, e) =>
+            {
                 if (e.RowIndex >= 0)
                 {
                     string id = dgvPOList.Rows[e.RowIndex].Cells[0].Value.ToString();
@@ -574,13 +580,13 @@ namespace SJ_PC_Store_SIMS.Views
                 }
             };
 
-            
+
 
             pnlGridContainer.Controls.Add(dgvPOList);
 
             pnlToolbar.Controls.Add(toolbar);
 
-            
+
             pnlBody.Controls.Add(pnlGridContainer);
             pnlBody.Controls.Add(pnlSpacer);
             pnlBody.Controls.Add(pnlToolbar);
@@ -644,7 +650,8 @@ namespace SJ_PC_Store_SIMS.Views
 
             pnlRightItems = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(30) };
 
-            Func<string, RoundedPanel> CreateInfoSection = (title) => {
+            Func<string, RoundedPanel> CreateInfoSection = (title) =>
+            {
                 Label lHead = new Label { Text = title.ToUpper(), Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UITheme.MutedText, AutoSize = true, Margin = new Padding(0, 0, 0, 10) };
                 flpLeftDetails.Controls.Add(lHead); _mutedTexts.Add(lHead);
                 RoundedPanel p = new RoundedPanel { Width = 320, Height = 100, BorderRadius = 6, BorderSize = 1, Padding = new Padding(20), Margin = new Padding(0, 0, 0, 25) };
@@ -835,16 +842,16 @@ namespace SJ_PC_Store_SIMS.Views
             lblTotalDisc.Text = $"Discount Applied: -{_selectedPO.Discount:C2}";
             lblTotalTax.Text = $"Tax Applied: {_selectedPO.Tax:C2}";
             lblTotalGrand.Text = $"GRAND TOTAL: {_selectedPO.GrandTotal:C2}";
-            
+
             dgvProfileItems.Rows.Clear();
-            
+
             foreach (var item in _selectedPO.Items)
             {
                 var dbItem = _dbItems.FirstOrDefault(i => i.ItemCode == item.ItemCode);
                 string cond = dbItem?.ItemCondition ?? "Brand New";
                 dgvProfileItems.Rows.Add(item.ItemCode, item.Description, cond, item.Quantity, item.UnitPrice, item.TotalAmount);
             }
-            
+
             // Adjust card heights after all content is loaded
             AdjustCardHeight(cardSupplier);
             AdjustCardHeight(cardSchedule);
@@ -948,20 +955,23 @@ namespace SJ_PC_Store_SIMS.Views
             RoundedPanel pnlItems = new RoundedPanel { Location = new Point(30, 390), Size = new Size(pnlBody.Width - 60, 460), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BorderRadius = 6, BorderSize = 1, Padding = new Padding(25) };
 
             Panel pnlItemHeader = new Panel { Dock = DockStyle.Top, Height = 50 };
-            btnAddRow = new IconButton { 
-                Text = " Add Row", 
-                IconChar = IconChar.Plus, 
-                IconSize = 14, 
-                Size = new Size(110, 35), 
-                Anchor = AnchorStyles.Top | AnchorStyles.Right, 
-                Location = new Point(pnlItems.Width - 160, 5), 
-                FlatStyle = FlatStyle.Flat, 
-                Cursor = Cursors.Hand, 
-                Tag = "Secondary", 
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold), 
-                TextImageRelation = TextImageRelation.ImageBeforeText, 
-                TextAlign = ContentAlignment.MiddleRight, ImageAlign = ContentAlignment.MiddleLeft, 
-                Padding = new Padding(10, 0, 10, 0) };
+            btnAddRow = new IconButton
+            {
+                Text = " Add Row",
+                IconChar = IconChar.Plus,
+                IconSize = 14,
+                Size = new Size(110, 35),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(pnlItems.Width - 160, 5),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Tag = "Secondary",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                TextAlign = ContentAlignment.MiddleRight,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(10, 0, 10, 0)
+            };
             btnAddRow.Click += (s, e) => AddCreateItemRow(); _buttons.Add(btnAddRow);
             pnlItemHeader.Controls.Add(btnAddRow);
 
@@ -1033,7 +1043,8 @@ namespace SJ_PC_Store_SIMS.Views
             pnlCreate.Controls.Add(container);
 
             pnlItems.Resize += (s, e) => { btnAddRow.Location = new Point(pnlItems.Width - 160, 5); };
-            pnlBody.Resize += (s, e) => {
+            pnlBody.Resize += (s, e) =>
+            {
                 pnlDetails.Width = pnlBody.Width - 60;
                 pnlItems.Width = pnlBody.Width - 60;
                 wrapRemarks.Width = pnlDetails.Width - 50;
@@ -1065,13 +1076,15 @@ namespace SJ_PC_Store_SIMS.Views
             btnDel.FlatAppearance.BorderSize = 0; btnDel.ForeColor = Color.FromArgb(239, 68, 68); btnDel.IconColor = Color.FromArgb(239, 68, 68);
             btnDel.Click += (s, e) => { flpCreateItems.Controls.Remove(row); CalculateTotals(); };
 
-            cCode.SelectedIndexChanged += (s, e) => {
+            cCode.SelectedIndexChanged += (s, e) =>
+            {
                 var match = _dbItems.FirstOrDefault(m => m.ItemCode == cCode.Text);
                 if (match != null) { lName.Text = $"{match.Category} {match.Specs}"; lCond.Text = match.ItemCondition; tPrice.Text = match.BaselineCost.ToString("0.00"); }
                 CalculateTotals();
             };
 
-            EventHandler calc = (s, e) => {
+            EventHandler calc = (s, e) =>
+            {
                 decimal q = 0, p = 0;
                 decimal.TryParse(tQty.Text, out q); decimal.TryParse(tPrice.Text, out p);
                 lTotal.Text = (q * p).ToString("0.00"); CalculateTotals();
@@ -1274,7 +1287,8 @@ namespace SJ_PC_Store_SIMS.Views
         private void OpenModal(string type)
         {
             ModalForm modal = new ModalForm { FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, StartPosition = FormStartPosition.CenterScreen, ShowInTaskbar = false };
-            modal.Paint += (s, e) => {
+            modal.Paint += (s, e) =>
+            {
                 if (modal.Width <= 1 || modal.Height <= 1) return; e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = new GraphicsPath())
                 {
@@ -1304,7 +1318,8 @@ namespace SJ_PC_Store_SIMS.Views
                 int totalW = btnCancel.Width + 10 + btnAction.Width;
                 btnCancel.Location = new Point((modal.Width - totalW) / 2, 16); btnAction.Location = new Point(((modal.Width - totalW) / 2) + btnCancel.Width + 10, 16);
 
-                btnAction.Click += (s, e) => {
+                btnAction.Click += (s, e) =>
+                {
                     try
                     {
                         if (_procController.UpdatePOStatus(_selectedPO.PO_Number, "Ordered", _activeUserId))
@@ -1337,7 +1352,8 @@ namespace SJ_PC_Store_SIMS.Views
                 int totalW = btnCancel.Width + 10 + btnAction.Width;
                 btnCancel.Location = new Point((modal.Width - totalW) / 2, 16); btnAction.Location = new Point(((modal.Width - totalW) / 2) + btnCancel.Width + 10, 16);
 
-                btnAction.Click += (s, e) => {
+                btnAction.Click += (s, e) =>
+                {
                     try
                     {
                         if (_procController.UpdatePOStatus(_selectedPO.PO_Number, "Cancelled", _activeUserId))
@@ -1386,7 +1402,7 @@ namespace SJ_PC_Store_SIMS.Views
                 pnlHeader.Controls.AddRange(new Control[] { hIcon, lblTitle, btnClose });
 
                 Panel body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(25) };
-                Label info = new Label { Text = $"INVENTORY AUTOMATION ACTIVE\nYou are receiving {_selectedPO.PO_Number}.\nPlease enter physical Serial Numbers below to inject them into STOCK_INSTANCE.", Font = new Font("Segoe UI", 10F, FontStyle.Italic), ForeColor = Color.FromArgb(59, 130, 246), AutoSize = false, Size = new Size(750, 80), Location = new Point(25, 20)};
+                Label info = new Label { Text = $"INVENTORY AUTOMATION ACTIVE\nYou are receiving {_selectedPO.PO_Number}.\nPlease enter physical Serial Numbers below to inject them into STOCK_INSTANCE.", Font = new Font("Segoe UI", 10F, FontStyle.Italic), ForeColor = Color.FromArgb(59, 130, 246), AutoSize = false, Size = new Size(750, 80), Location = new Point(25, 20) };
                 body.Controls.Add(info);
 
                 int y = 110;
@@ -1403,7 +1419,7 @@ namespace SJ_PC_Store_SIMS.Views
                         pCode.Controls.Add(tCode);
 
                         RoundedPanel pStat = new RoundedPanel { Size = new Size(120, 38), Location = new Point(560, y - 5), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 7, 10, 7) };
-                        DarkComboBox cStat = new DarkComboBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F), Cursor = Cursors.Hand, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText};
+                        DarkComboBox cStat = new DarkComboBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F), Cursor = Cursors.Hand, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText };
                         cStat.Items.AddRange(new[] { "Available", "Defective" }); cStat.SelectedIndex = 0;
                         pStat.Controls.Add(cStat);
 
@@ -1418,7 +1434,8 @@ namespace SJ_PC_Store_SIMS.Views
                 Button btnAction = new Button { Text = "Save to Inventory", Size = new Size(220, 38), FlatStyle = FlatStyle.Flat, BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark, ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(modal.Width - 25 - 220, 16) };
                 btnAction.FlatAppearance.BorderSize = 0;
 
-                btnAction.Click += (s, e) => {
+                btnAction.Click += (s, e) =>
+                {
                     List<StockInstanceModel> physicalItems = new List<StockInstanceModel>();
                     foreach (Control c in body.Controls)
                     {

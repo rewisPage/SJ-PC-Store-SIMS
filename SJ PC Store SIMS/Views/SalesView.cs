@@ -255,7 +255,7 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void LogAndNotify(string title, string message, bool isSuccess)
         {
-            _salesController.LogActivity(_activeUserId, $"{title} - {message}");
+            _salesController.LogActivity(_activeUserId, $"{title} - {message}", "Sales");
             if (this.FindForm() is DashboardForm dash)
             {
                 dash.AddNotification(title, message, isSuccess);

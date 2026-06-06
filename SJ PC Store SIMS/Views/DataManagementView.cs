@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Windows.Forms;
-using FontAwesome.Sharp;
-using SJ_PC_Store_SIMS.Utils;
+﻿using FontAwesome.Sharp;
 using SJ_PC_Store_SIMS.Controllers;
 using SJ_PC_Store_SIMS.Models;
-using System.Linq;
+using SJ_PC_Store_SIMS.Utils;
+using System.Drawing.Drawing2D;
 using System.Reflection;
 
 namespace SJ_PC_Store_SIMS.Views
@@ -179,7 +174,7 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void LogAndNotify(string title, string message, bool isSuccess)
         {
-            _dmController.LogActivity(_activeUserId, $"{title} - {message}");
+            _dmController.LogActivity(_activeUserId, $"{title} - {message}", "Data Management");
 
             if (this.FindForm() is DashboardForm dash)
             {
@@ -201,7 +196,8 @@ namespace SJ_PC_Store_SIMS.Views
             Form toast = new Form { StartPosition = FormStartPosition.Manual, FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, Size = new Size(toastWidth, 60), TopMost = true, ShowInTaskbar = false };
             toast.Location = new Point(parent.Right - toastWidth - 20, parent.Bottom - 80);
 
-            toast.Paint += (s, e) => {
+            toast.Paint += (s, e) =>
+            {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = new GraphicsPath())
                 {
@@ -274,7 +270,8 @@ namespace SJ_PC_Store_SIMS.Views
 
             flpSuppliers = new BufferedFlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0), Margin = new Padding(0) };
 
-            flpSuppliers.Paint += (s, e) => {
+            flpSuppliers.Paint += (s, e) =>
+            {
                 if (_allSuppliers.Count == 0)
                 {
                     TextRenderer.DrawText(e.Graphics, "No suppliers in database.\nClick '+' to register one.", new Font("Segoe UI", 10.5F, FontStyle.Italic), flpSuppliers.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -337,7 +334,8 @@ namespace SJ_PC_Store_SIMS.Views
             pnlOverviewTab = new SmoothPanel { Dock = DockStyle.Fill, AutoScroll = true };
             pnlTransactionsTab = new SmoothPanel { Dock = DockStyle.Fill, Visible = false };
 
-            pnlOverviewTab.Paint += (s, e) => {
+            pnlOverviewTab.Paint += (s, e) =>
+            {
                 if (_selectedSupplier == null)
                 {
                     TextRenderer.DrawText(e.Graphics, "Please select a supplier from the list to view details.", new Font("Segoe UI", 11F, FontStyle.Italic), pnlOverviewTab.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -365,7 +363,8 @@ namespace SJ_PC_Store_SIMS.Views
             dgvPOHistory.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
             dgvPOHistory.ColumnHeadersDefaultCellStyle.Padding = new Padding(15, 0, 0, 0);
 
-            dgvPOHistory.CellMouseClick += (s, e) => {
+            dgvPOHistory.CellMouseClick += (s, e) =>
+            {
                 if (e.RowIndex >= 0)
                 {
                     string poNumber = dgvPOHistory.Rows[e.RowIndex].Cells[0].Value.ToString();
@@ -375,7 +374,8 @@ namespace SJ_PC_Store_SIMS.Views
                 }
             };
 
-            dgvPOHistory.Paint += (s, e) => {
+            dgvPOHistory.Paint += (s, e) =>
+            {
                 if (dgvPOHistory.Rows.Count == 0 && _selectedSupplier != null) TextRenderer.DrawText(e.Graphics, "No procurement history found for this supplier.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvPOHistory.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             };
             pnlTransactionsTab.Controls.Add(dgvPOHistory);
@@ -445,14 +445,16 @@ namespace SJ_PC_Store_SIMS.Views
 
                 bool isActiveCard = (_selectedSupplier != null && _selectedSupplier.SupplierID == sup.SupplierID);
 
-                Action applyCardTheme = () => {
+                Action applyCardTheme = () =>
+                {
                     Color activeText = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark;
                     lblName.ForeColor = isActiveCard ? activeText : UITheme.CurrentText;
                     lblID.ForeColor = UITheme.MutedText;
                     card.BackColor = isActiveCard ? (UITheme.IsDarkMode ? Color.FromArgb(20, 255, 210, 74) : Color.FromArgb(15, 10, 36, 64)) : Color.Transparent;
                 };
 
-                card.Paint += (s, e) => {
+                card.Paint += (s, e) =>
+                {
                     if (isActiveCard)
                     {
                         Color indicator = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark;
@@ -503,7 +505,8 @@ namespace SJ_PC_Store_SIMS.Views
             _dynamicTexts.Add(lblDetName); _mutedTexts.Add(lblDetID);
 
             int y = 30;
-            Action<string> AddHeader = (title) => {
+            Action<string> AddHeader = (title) =>
+            {
                 Label h = new Label { Text = title.ToUpper(), Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(30, y) };
                 pnlOverviewTab.Controls.Add(h); _mutedTexts.Add(h); y += 25;
 
@@ -512,7 +515,8 @@ namespace SJ_PC_Store_SIMS.Views
                 pnlOverviewTab.Controls.Add(line); _lines.Add(line); y += 20;
             };
 
-            Action<string, string, int, int, bool> AddInfo = (lbl, val, xOffset, width, isItalic) => {
+            Action<string, string, int, int, bool> AddInfo = (lbl, val, xOffset, width, isItalic) =>
+            {
                 Label l1 = new Label { Text = lbl, Font = new Font("Segoe UI", 9.5F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(xOffset, y) };
 
                 FontStyle fs = FontStyle.Bold;
@@ -559,7 +563,8 @@ namespace SJ_PC_Store_SIMS.Views
         private void OpenModal(string type)
         {
             ModalForm modal = new ModalForm { FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, StartPosition = FormStartPosition.CenterScreen, ShowInTaskbar = false };
-            modal.Paint += (s, e) => {
+            modal.Paint += (s, e) =>
+            {
                 if (modal.Width <= 1 || modal.Height <= 1) return;
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = new GraphicsPath())
@@ -609,7 +614,8 @@ namespace SJ_PC_Store_SIMS.Views
                 btnCancel.Location = new Point(startX, 16);
                 btnAction.Location = new Point(startX + btnCancel.Width + 10, 16);
 
-                btnAction.Click += (s, e) => {
+                btnAction.Click += (s, e) =>
+                {
                     if (isActivating)
                     {
                         if (_dmController.ActivateSupplier(_selectedSupplier.SupplierID, _activeUserId))
@@ -639,7 +645,8 @@ namespace SJ_PC_Store_SIMS.Views
                 Label lblPO = new Label { Text = _hoveredPO.PO_Number, Font = new Font("Consolas", 18F, FontStyle.Bold), ForeColor = Color.FromArgb(59, 130, 246), AutoSize = true, Location = new Point(115, 80) };
 
                 RoundedPanel pnlSum = new RoundedPanel { Size = new Size(340, 110), Location = new Point(30, 120), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg };
-                Action<string, string, int> AddSum = (l, v, yLoc) => {
+                Action<string, string, int> AddSum = (l, v, yLoc) =>
+                {
                     pnlSum.Controls.Add(new Label { Text = l, Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, AutoSize = true, Location = new Point(15, yLoc) });
                     pnlSum.Controls.Add(new Label { Text = v, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(150, yLoc) });
                 };
@@ -651,14 +658,16 @@ namespace SJ_PC_Store_SIMS.Views
                 Button btnGo = new Button { Text = "Go to Procurement", Size = new Size(200, 38), FlatStyle = FlatStyle.Flat, BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark, ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(100, 16) };
                 btnGo.FlatAppearance.BorderSize = 0;
                 btnGo.FlatAppearance.BorderSize = 0;
-                btnGo.Click += (s, e) => {
+                btnGo.Click += (s, e) =>
+                {
                     Form parent = this.FindForm();
                     if (parent != null)
                     {
                         ProcurementView procView = null;
 
                         // 1. Helper function to deep-search the Dashboard for the Procurement screen
-                        Func<ProcurementView> SearchForView = () => {
+                        Func<ProcurementView> SearchForView = () =>
+                        {
                             Stack<Control> stack = new Stack<Control>();
                             stack.Push(parent);
                             while (stack.Count > 0)
@@ -736,7 +745,8 @@ namespace SJ_PC_Store_SIMS.Views
                     pCode.Controls.Add(txtCode); modal.Controls.AddRange(new Control[] { lCode, pCode }); y += 70;
                 }
 
-                Func<string, string, int, int, int, int, bool, TextBox> MakeInput = (lbl, val, xOffset, yLoc, w, height, isMulti) => {
+                Func<string, string, int, int, int, int, bool, TextBox> MakeInput = (lbl, val, xOffset, yLoc, w, height, isMulti) =>
+                {
                     Label l = new Label { Text = lbl, Font = new Font("Segoe UI", 8.5F), ForeColor = UITheme.MutedText, Location = new Point(xOffset, yLoc), AutoSize = true };
                     RoundedPanel p = new RoundedPanel { Size = new Size(w, height), Location = new Point(xOffset, yLoc + 20), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
                     TextBox t = new TextBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 10.5F), Text = val, Multiline = isMulti };
@@ -759,7 +769,8 @@ namespace SJ_PC_Store_SIMS.Views
                 btnAction.Location = new Point(modal.Width - 35 - 150, 16);
                 btnCancel.Location = new Point(modal.Width - 35 - 150 - 10 - 100, 16);
 
-                btnAction.Click += (s, e) => {
+                btnAction.Click += (s, e) =>
+                {
                     if (string.IsNullOrWhiteSpace(txtComp.Text)) { ShowToast("Company Name is required.", false); return; }
                     SupplierModel sup = new SupplierModel { SupplierID = type == "Edit" ? txtCode.Text : "", CompanyName = txtComp.Text, ContactPerson = txtCP.Text, ContactNumber = txtCN.Text, EmailAddress = txtEmail.Text, Address = txtAddr.Text, Remarks = txtRem.Text };
 
