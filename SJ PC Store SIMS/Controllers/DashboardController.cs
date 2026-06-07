@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
 
@@ -7,6 +6,45 @@ namespace SJ_PC_Store_SIMS.Controllers
 {
     public class DashboardController
     {
+        public List<ActivityLogModel> GetUserRecentActivity(string userId, int limit = 15)
+        {
+            List<ActivityLogModel> logs = new List<ActivityLogModel>();
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
+            {
+                // Queries the latest logs for this specific user
+                string query = @"
+                    SELECT TOP (@Limit) LogID, UserID, ModuleCategory, ActionDescription, LogDate 
+                    FROM ACTIVITY_LOG 
+                    WHERE UserID = @UserID 
+                    ORDER BY LogDate DESC";
+
+                SqlCommand cmd = new SqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@Limit", limit);
+                cmd.Parameters.AddWithValue("@UserID", userId);
+
+                try
+                {
+                    conn.Open();
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            logs.Add(new ActivityLogModel
+                            {
+                                LogID = Convert.ToInt32(reader["LogID"]),
+                                UserID = reader["UserID"].ToString(),
+                                ModuleCategory = reader["ModuleCategory"]?.ToString() ?? "System",
+                                ActionDescription = reader["ActionDescription"].ToString(),
+                                LogDate = Convert.ToDateTime(reader["LogDate"])
+                            });
+                        }
+                    }
+                }
+                catch { /* Fail silently to prevent crashing the dashboard */ }
+            }
+            return logs;
+        }
+
         public DashboardStatsModel GetDashboardStatistics()
         {
             DashboardStatsModel stats = new DashboardStatsModel();
