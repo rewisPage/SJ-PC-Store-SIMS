@@ -56,8 +56,9 @@ namespace SJ_PC_Store_SIMS.Views
         private List<IconButton> _navButtons = new List<IconButton>();
         private List<Panel> _moduleSections = new List<Panel>();
 
-        // RBAC Tracking
-        private List<Control> _adminOnlyControls = new List<Control>();
+        // RBAC Dynamic Controls
+        private IconButton btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings;
+        private Panel pnlSalesSection, pnlInvSection, pnlProcSection, pnlDataSection, pnlUserSection;
 
         public DashboardForm(UserModel user)
         {
@@ -67,6 +68,8 @@ namespace SJ_PC_Store_SIMS.Views
             this.DoubleBuffered = true;
 
             InitializeProgrammaticUI();
+
+            PopulateUserNotifications();
             ApplyTheme();
             ApplyRBAC();
             StartClock();
@@ -96,15 +99,15 @@ namespace SJ_PC_Store_SIMS.Views
 
             FlowLayoutPanel flpNav = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 20, 0, 0), BackColor = Color.Transparent };
 
-            IconButton btnDash = CreateNavButton("Dashboard", IconChar.ChartPie, true);
-            IconButton btnPOS = CreateNavButton("Sales POS", IconChar.ShoppingCart, false);
-            IconButton btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
-            IconButton btnProc = CreateNavButton("Procurement", IconChar.TruckLoading, false);
-            IconButton btnData = CreateNavButton("Data Management", IconChar.Database, false);
-            IconButton btnReports = CreateNavButton("Report Center", IconChar.ChartLine, false);
-            IconButton btnUsers = CreateNavButton("User Management", IconChar.Users, false);
-            IconButton btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
-            IconButton btnSettings = CreateNavButton("Settings", IconChar.Cog, false);
+            btnDash = CreateNavButton("Dashboard", IconChar.ChartPie, true);
+            btnPOS = CreateNavButton("Sales POS", IconChar.ShoppingCart, false);
+            btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
+            btnProc = CreateNavButton("Procurement", IconChar.TruckLoading, false);
+            btnData = CreateNavButton("Data Management", IconChar.Database, false);
+            btnReports = CreateNavButton("Report Center", IconChar.ChartLine, false);
+            btnUsers = CreateNavButton("User Management", IconChar.Users, false);
+            btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
+            btnSettings = CreateNavButton("Settings", IconChar.Cog, false);
 
             btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
             btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView(_currentUser.UserID)); SetActiveNavButton(btnInv); };
@@ -112,8 +115,9 @@ namespace SJ_PC_Store_SIMS.Views
             btnProc.Click += (s, e) => { lblPageTitle.Text = "Procurement Management"; LoadUserControl(new ProcurementView(_currentUser.UserID)); SetActiveNavButton(btnProc); };
             btnPOS.Click += (s, e) => { lblPageTitle.Text = "Sales Management"; LoadUserControl(new SalesView(_currentUser.UserID)); SetActiveNavButton(btnPOS); };
             btnReports.Click += (s, e) => { lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID)); SetActiveNavButton(btnReports); };
+            btnUsers.Click += (s, e) => { lblPageTitle.Text = "User Management"; LoadUserControl(new UserManagementView(_currentUser.UserID)); SetActiveNavButton(btnUsers); };
 
-            _adminOnlyControls.AddRange(new Control[] { btnInv, btnProc, btnData, btnReports, btnUsers, btnSettings });
+            // Add them to the FlowLayoutPanel (Gaps will automatically close when a button is hidden)
             flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings });
 
             BufferedPanel pnlFooter = new BufferedPanel { Dock = DockStyle.Bottom, Height = 70, BackColor = Color.Transparent };
@@ -200,24 +204,31 @@ namespace SJ_PC_Store_SIMS.Views
             pnlWorkspace = new Panel { Dock = DockStyle.Fill };
             pnlDashboardContainer = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(40, 20, 40, 40) };
 
-            Panel pnlSalesSection = CreateModuleSection("SALES OVERVIEW", out Panel salesGrid);
+            pnlSalesSection = CreateModuleSection("SALES OVERVIEW", out Panel salesGrid);
             salesGrid.Controls.Add(CreateStatCard("Today's Revenue", "₱ 0.00", "+0% from yesterday", IconChar.Wallet, true, 0, 0));
             salesGrid.Controls.Add(CreateStatCard("Transactions Today", "0", "All successful", IconChar.Receipt, true, 340, 0));
 
-            Panel pnlInvSection = CreateModuleSection("INVENTORY OVERVIEW", out Panel invGrid);
+            pnlInvSection = CreateModuleSection("INVENTORY OVERVIEW", out Panel invGrid);
             invGrid.Controls.Add(CreateStatCard("Total Stock Value", "₱ 0.00", "Current valuation", IconChar.Boxes, false, 0, 0));
             invGrid.Controls.Add(CreateStatCard("Low Stock Alerts", "0 Items", "Needs immediate restocking", IconChar.ExclamationTriangle, false, 340, 0, true));
             invGrid.Controls.Add(CreateStatCard("Registered Products", "0", "Total items in database", IconChar.BoxOpen, false, 680, 0));
 
-            Panel pnlProcSection = CreateModuleSection("PROCUREMENT OVERVIEW", out Panel procGrid);
+            pnlProcSection = CreateModuleSection("PROCUREMENT OVERVIEW", out Panel procGrid);
             procGrid.Controls.Add(CreateStatCard("Pending Procurements", "0 Batches", "Arriving this week", IconChar.Truck, false, 0, 0));
             procGrid.Controls.Add(CreateStatCard("Total Purchase Orders", "0", "Lifetime POs logged", IconChar.FileInvoice, false, 340, 0));
 
-            Panel pnlDataSection = CreateModuleSection("DATA MANAGEMENT OVERVIEW", out Panel dataGrid);
+            pnlDataSection = CreateModuleSection("DATA MANAGEMENT OVERVIEW", out Panel dataGrid);
             dataGrid.Controls.Add(CreateStatCard("Registered Suppliers", "0", "Active business partners", IconChar.Handshake, false, 0, 0));
 
-            Panel pnlUserSection = CreateModuleSection("USER MANAGEMENT OVERVIEW", out Panel userGrid);
+            pnlUserSection = CreateModuleSection("USER MANAGEMENT OVERVIEW", out Panel userGrid);
             userGrid.Controls.Add(CreateStatCard("Active Users", "0", "System Admins & Cashiers", IconChar.Users, false, 0, 0));
+
+            // Add them to the Workspace Container (Top Docking will automatically shift panels up when one is hidden)
+            pnlDashboardContainer.Controls.Add(pnlUserSection);
+            pnlDashboardContainer.Controls.Add(pnlDataSection);
+            pnlDashboardContainer.Controls.Add(pnlProcSection);
+            pnlDashboardContainer.Controls.Add(pnlInvSection);
+            pnlDashboardContainer.Controls.Add(pnlSalesSection);
 
             Panel pnlWelcomeWrapper = new Panel { Dock = DockStyle.Top, Height = 100, BackColor = Color.Transparent };
             lblWelcome = new Label { Text = $"Welcome Back, {_currentUser.FirstName}!", Font = new Font("Segoe UI", 22F, FontStyle.Bold), AutoSize = true, Location = new Point(0, 0) };
@@ -225,11 +236,6 @@ namespace SJ_PC_Store_SIMS.Views
             pnlWelcomeWrapper.Controls.AddRange(new Control[] { lblWelcome, lblSubWelcome });
             _dynamicTexts.Add(lblWelcome);
             _mutedTexts.Add(lblSubWelcome);
-
-            _adminOnlyControls.Add(pnlInvSection);
-            _adminOnlyControls.Add(pnlProcSection);
-            _adminOnlyControls.Add(pnlDataSection);
-            _adminOnlyControls.Add(pnlUserSection);
 
             pnlDashboardContainer.Controls.Add(pnlUserSection);
             pnlDashboardContainer.Controls.Add(pnlDataSection);
@@ -308,6 +314,59 @@ namespace SJ_PC_Store_SIMS.Views
             this.Controls.Add(pnlHeader);
             this.Controls.Add(pnlSidebar);
         }
+
+        // =========================================================================
+        // DYNAMIC NOTIFICATION ENGINE LOGIC
+        // =========================================================================
+        private string GetRelativeTime(DateTime logDate)
+        {
+            TimeSpan ts = DateTime.Now - logDate;
+            if (ts.TotalMinutes < 1) return "Just now";
+            if (ts.TotalMinutes < 60) return $"{(int)ts.TotalMinutes} mins ago";
+            if (ts.TotalHours < 24) return $"{(int)ts.TotalHours} hrs ago";
+            if (ts.TotalDays < 7) return $"{(int)ts.TotalDays} days ago";
+            return logDate.ToString("MMM dd, yyyy");
+        }
+
+        private (IconChar, Color) GetNotificationStyle(string category)
+        {
+            switch (category)
+            {
+                case "Sales": return (IconChar.ShoppingCart, Color.FromArgb(16, 185, 129));
+                case "Inventory": return (IconChar.Boxes, Color.FromArgb(245, 158, 11));
+                case "Procurement": return (IconChar.TruckLoading, Color.FromArgb(59, 130, 246));
+                case "User Management": return (IconChar.UserShield, UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark);
+                case "Data Management": return (IconChar.Database, Color.FromArgb(139, 92, 246));
+                default: return (IconChar.InfoCircle, UITheme.MutedText);
+            }
+        }
+
+        private void PopulateUserNotifications()
+        {
+            flpNotifications.Controls.Clear();
+
+            var recentLogs = _dashboardController.GetUserRecentActivity(_currentUser.UserID, 15);
+
+            if (recentLogs == null || recentLogs.Count == 0)
+            {
+                AddDynamicNotification("System Message", "No recent activity found.", IconChar.BellSlash, UITheme.MutedText, DateTime.Now.ToString("MMM d, h:mm tt"));
+                pnlBadge.Visible = false; // Turn off red dot if there's no real activity
+                return;
+            }
+
+            // Iterate backwards so the absolute newest item is pushed to the top last
+            for (int i = recentLogs.Count - 1; i >= 0; i--)
+            {
+                var log = recentLogs[i];
+                var style = GetNotificationStyle(log.ModuleCategory);
+                string timeStr = GetRelativeTime(log.LogDate);
+
+                // Routes to the NEW 5-parameter method we just created!
+                AddDynamicNotification(log.ModuleCategory, log.ActionDescription, style.Item1, style.Item2, timeStr);
+            }
+        }
+
+
 
         // ========================================================
         // WIRING & NAVIGATION LOGIC
@@ -403,7 +462,22 @@ namespace SJ_PC_Store_SIMS.Views
             }
         }
 
+        // =========================================================================
+        // NOTIFICATION UI METHODS
+        // =========================================================================
+
+        // 1. Backward compatibility for existing system alerts (Login, Low Stock, etc.)
         public void AddNotification(string title, string message, bool isSuccess)
+        {
+            IconChar iconChar = isSuccess ? IconChar.CheckCircle : IconChar.ExclamationCircle;
+            Color iconColor = isSuccess ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68);
+            string timeStr = DateTime.Now.ToString("MMM d, h:mm tt");
+
+            AddDynamicNotification(title, message, iconChar, iconColor, timeStr);
+        }
+
+        // 2. The core dynamic engine for Activity Logs
+        public void AddDynamicNotification(string title, string message, IconChar iconChar, Color iconColor, string timeStr)
         {
             BufferedPanel pnlItem = new BufferedPanel { Size = new Size(410, 95), Margin = new Padding(15, 5, 10, 5) };
 
@@ -412,10 +486,14 @@ namespace SJ_PC_Store_SIMS.Views
                 using (Pen pen = new Pen(UITheme.CurrentBorder, 1)) { e.Graphics.DrawLine(pen, 5, 94, pnlItem.Width - 5, 94); }
             };
 
-            IconPictureBox icon = new IconPictureBox { IconChar = isSuccess ? IconChar.CheckCircle : IconChar.ExclamationCircle, IconColor = isSuccess ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68), IconSize = 26, Size = new Size(26, 26), Location = new Point(20, 20), BackColor = Color.Transparent };
+            IconPictureBox icon = new IconPictureBox { IconChar = iconChar, IconColor = iconColor, IconSize = 26, Size = new Size(26, 26), Location = new Point(20, 20), BackColor = Color.Transparent };
             Label lblTitle = new Label { Text = title, Font = new Font("Segoe UI", 10F, FontStyle.Bold), Location = new Point(60, 16), AutoSize = true };
-            Label lblMsg = new Label { Text = message, Font = new Font("Segoe UI", 9F), Location = new Point(60, 40), AutoSize = true };
-            Label lblTime = new Label { Text = DateTime.Now.ToString("MMM d, h:mm tt"), Font = new Font("Segoe UI", 8F), Location = new Point(60, 65), AutoSize = true };
+
+            // Handle long messages by truncating to avoid text overlapping the panel
+            string displayMsg = message.Length > 45 ? message.Substring(0, 42) + "..." : message;
+            Label lblMsg = new Label { Text = displayMsg, Font = new Font("Segoe UI", 9F), Location = new Point(60, 40), AutoSize = true };
+
+            Label lblTime = new Label { Text = timeStr, Font = new Font("Segoe UI", 8F), Location = new Point(60, 65), AutoSize = true };
 
             _dynamicTexts.Add(lblTitle);
             _dynamicTexts.Add(lblMsg);
@@ -423,7 +501,8 @@ namespace SJ_PC_Store_SIMS.Views
 
             pnlItem.Controls.AddRange(new Control[] { icon, lblTitle, lblMsg, lblTime });
             flpNotifications.Controls.Add(pnlItem);
-            flpNotifications.Controls.SetChildIndex(pnlItem, 0);
+            flpNotifications.Controls.SetChildIndex(pnlItem, 0); // Always puts newest at the top
+
             pnlBadge.Visible = true;
         }
 
@@ -538,7 +617,26 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void ApplyRBAC()
         {
-            if (_currentUser.Role == "Cashier") foreach (Control ctrl in _adminOnlyControls) ctrl.Visible = false;
+            if (_currentUser?.Permissions == null) return;
+
+            // 1. Toggle Sidebar Navigation Buttons
+            btnUsers.Visible = _currentUser.Permissions.CanManageUsers;
+            btnInv.Visible = _currentUser.Permissions.CanManageInventory;
+            btnPOS.Visible = _currentUser.Permissions.CanProcessSales;
+            btnProc.Visible = _currentUser.Permissions.CanManageProcurement;
+            btnReports.Visible = _currentUser.Permissions.CanViewReports;
+            btnData.Visible = _currentUser.Permissions.CanManageData;
+            btnUsers.Visible = _currentUser.Permissions.CanManageUsers;
+
+            // We tie Settings to User Management permission as a default Admin trait
+            btnSettings.Visible = _currentUser.Permissions.CanManageUsers;
+
+            // 2. Toggle Dashboard Overview Sections
+            pnlUserSection.Visible = _currentUser.Permissions.CanManageUsers;
+            pnlInvSection.Visible = _currentUser.Permissions.CanManageInventory;
+            pnlSalesSection.Visible = _currentUser.Permissions.CanProcessSales;
+            pnlProcSection.Visible = _currentUser.Permissions.CanManageProcurement;
+            pnlDataSection.Visible = _currentUser.Permissions.CanManageData;
         }
 
         private void ApplyTheme()
