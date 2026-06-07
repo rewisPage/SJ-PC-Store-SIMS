@@ -65,7 +65,7 @@ namespace SJ_PC_Store_SIMS.Controllers
                     if (success) LogActivity(currentUserId, $"Created new dynamic role: {roleName}", "User Management");
                     return success;
                 }
-                catch { return false; } // Catches duplicate role names
+                catch { return false; }
             }
         }
 
@@ -84,7 +84,7 @@ namespace SJ_PC_Store_SIMS.Controllers
                         string lastId = result.ToString();
                         if (lastId.StartsWith("USR-") && int.TryParse(lastId.Substring(4), out int num))
                         {
-                            return $"USR-{(num + 1):D3}"; // e.g., USR-005
+                            return $"USR-{(num + 1):D3}";
                         }
                     }
                 }
@@ -148,7 +148,6 @@ namespace SJ_PC_Store_SIMS.Controllers
         // 5. Create a New User
         public bool CreateUser(UserModel user, string rawPassword, string currentUserId)
         {
-            // 1. Automatically generate and assign the 6-character alphanumeric passkey
             user.Passkey = GeneratePasskey();
 
             using (SqlConnection conn = DatabaseHelper.GetConnection())
@@ -165,8 +164,6 @@ namespace SJ_PC_Store_SIMS.Controllers
                 cmd.Parameters.AddWithValue("@UN", user.Username);
                 cmd.Parameters.AddWithValue("@PH", BCrypt.Net.BCrypt.HashPassword(rawPassword));
                 cmd.Parameters.AddWithValue("@R", user.Role);
-
-                // 2. Map the newly generated passkey to the SQL parameter
                 cmd.Parameters.AddWithValue("@PK", user.Passkey);
                 cmd.Parameters.AddWithValue("@CB", currentUserId);
 
@@ -291,10 +288,9 @@ namespace SJ_PC_Store_SIMS.Controllers
             }
         }
 
-        // 10. Reset User Passkey
-        public string ResetUserPasskey(string targetUserId, string currentUserId)
+        // 10. Reset User Passkey (Now Accepts Dynamic Module Category)
+        public string ResetUserPasskey(string targetUserId, string currentUserId, string moduleCategory = "User Management")
         {
-            // Generate a fresh passkey using our existing helper
             string newPasskey = GeneratePasskey();
 
             using (SqlConnection conn = DatabaseHelper.GetConnection())
@@ -310,13 +306,87 @@ namespace SJ_PC_Store_SIMS.Controllers
                     conn.Open();
                     if (cmd.ExecuteNonQuery() > 0)
                     {
-                        LogActivity(currentUserId, $"Reset passkey for user ID: {targetUserId}", "User Management");
+                        // Dynamic module logging
+                        LogActivity(currentUserId, $"Reset recovery passkey for user ID: {targetUserId}", moduleCategory);
                         return newPasskey;
                     }
                 }
-                catch { } // Fails silently to prevent crashes
+                catch { }
             }
-            return null; // Return null if the database update failed
+            return null;
+        }
+
+        // 11. Fetch Specific User for Profile View
+        public UserModel GetUserById(string userId)
+        {
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
+            {
+                string query = @"
+                    SELECT UserID, FirstName, LastName, ContactNumber, Username, Role, Passkey, Status, 
+                           CreatedBy, CreatedTime, ModifiedBy, LastModifiedTime 
+                    FROM [USER] WHERE UserID = @ID";
+
+                SqlCommand cmd = new SqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@ID", userId);
+                conn.Open();
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return new UserModel
+                        {
+                            UserID = reader["UserID"].ToString(),
+                            FirstName = reader["FirstName"].ToString(),
+                            LastName = reader["LastName"].ToString(),
+                            ContactNumber = reader["ContactNumber"]?.ToString(),
+                            Username = reader["Username"].ToString(),
+                            Role = reader["Role"].ToString(),
+                            Passkey = reader["Passkey"]?.ToString(),
+                            Status = reader["Status"].ToString(),
+                            CreatedBy = reader["CreatedBy"]?.ToString(),
+                            CreatedTime = reader["CreatedTime"] != DBNull.Value ? Convert.ToDateTime(reader["CreatedTime"]) : null,
+                            ModifiedBy = reader["ModifiedBy"]?.ToString(),
+                            LastModifiedTime = reader["LastModifiedTime"] != DBNull.Value ? Convert.ToDateTime(reader["LastModifiedTime"]) : null
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 12. Update Password from Profile View
+        public bool ChangeUserPassword(string userId, string currentPassword, string newPassword)
+        {
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
+            {
+                conn.Open();
+                string getHashQuery = "SELECT PasswordHash FROM [USER] WHERE UserID = @ID";
+                string storedHash = "";
+
+                using (SqlCommand cmd = new SqlCommand(getHashQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ID", userId);
+                    var result = cmd.ExecuteScalar();
+                    if (result != null) storedHash = result.ToString();
+                }
+
+                if (!string.IsNullOrEmpty(storedHash) && BCrypt.Net.BCrypt.Verify(currentPassword, storedHash))
+                {
+                    string updateQuery = "UPDATE [USER] SET PasswordHash = @PH, ModifiedBy = @MB, LastModifiedTime = GETDATE() WHERE UserID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@PH", BCrypt.Net.BCrypt.HashPassword(newPassword));
+                        cmd.Parameters.AddWithValue("@MB", userId);
+                        cmd.Parameters.AddWithValue("@ID", userId);
+                        bool success = cmd.ExecuteNonQuery() > 0;
+
+                        // Force logging strictly into the "Profile" Category
+                        if (success) LogActivity(userId, "Updated account login password.", "Profile");
+                        return success;
+                    }
+                }
+                return false;
+            }
         }
     }
 }
