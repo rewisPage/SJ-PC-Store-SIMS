@@ -16,7 +16,15 @@ namespace SJ_PC_Store_SIMS.Controllers
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
                 conn.Open();
-                string query = "SELECT UserID, FirstName, LastName, Username, PasswordHash, Role, Status FROM [USER] WHERE Username = @Username AND Status = 'Active'";
+
+                // Use INNER JOIN to dynamically fetch the Role permissions alongside the user data
+                string query = @"
+                    SELECT u.UserID, u.FirstName, u.LastName, u.Username, u.PasswordHash, u.Role, u.Status,
+                           r.CanManageUsers, r.CanManageInventory, r.CanProcessSales, 
+                           r.CanManageProcurement, r.CanViewReports, r.CanManageData
+                    FROM [USER] u
+                    INNER JOIN [ROLE] r ON u.Role = r.RoleName
+                    WHERE u.Username = @Username AND u.Status = 'Active'";
 
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
@@ -36,7 +44,18 @@ namespace SJ_PC_Store_SIMS.Controllers
                                     LastName = reader["LastName"].ToString(),
                                     Username = reader["Username"].ToString(),
                                     Role = reader["Role"].ToString(),
-                                    Status = reader["Status"].ToString()
+                                    Status = reader["Status"].ToString(),
+
+                                    // Map the Database Booleans to the Permissions object
+                                    Permissions = new RolePermissions
+                                    {
+                                        CanManageUsers = Convert.ToBoolean(reader["CanManageUsers"]),
+                                        CanManageInventory = Convert.ToBoolean(reader["CanManageInventory"]),
+                                        CanProcessSales = Convert.ToBoolean(reader["CanProcessSales"]),
+                                        CanManageProcurement = Convert.ToBoolean(reader["CanManageProcurement"]),
+                                        CanViewReports = Convert.ToBoolean(reader["CanViewReports"]),
+                                        CanManageData = Convert.ToBoolean(reader["CanManageData"])
+                                    }
                                 };
                             }
                         }
