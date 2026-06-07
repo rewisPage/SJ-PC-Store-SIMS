@@ -71,7 +71,7 @@ namespace SJ_PC_Store_SIMS.Controllers
                 string queryLowStock = @"SELECT COUNT(*) FROM ( SELECT i.ItemCode, (SELECT COUNT(*) FROM STOCK_INSTANCE s WHERE s.ItemCode = i.ItemCode AND s.Status='Available') as Qty FROM ITEM_MASTER i WHERE i.IsActive = 1 ) as StockTable WHERE Qty <= 2";
                 using (SqlCommand cmd = new SqlCommand(queryLowStock, conn)) { stats.LowStockAlerts = Convert.ToInt32(cmd.ExecuteScalar()); }
 
-                string queryPending = @"SELECT COUNT(PO_Number) FROM [PROCUREMENT] WHERE Status = 'Pending'";
+                string queryPending = @"SELECT COUNT(PO_Number) FROM [PROCUREMENT] WHERE Status = 'Ordered'";
                 using (SqlCommand cmd = new SqlCommand(queryPending, conn)) { stats.PendingProcurements = Convert.ToInt32(cmd.ExecuteScalar()); }
 
                 string queryTotalPO = "SELECT COUNT(PO_Number) FROM [PROCUREMENT]";
