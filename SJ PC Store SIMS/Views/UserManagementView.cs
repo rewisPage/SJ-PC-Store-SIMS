@@ -290,7 +290,7 @@ namespace SJ_PC_Store_SIMS.Views
             Control wFrom = CreateInputWrapper(dtpLogFrom, 130);
             Control wTo = CreateInputWrapper(dtpLogTo, 130);
 
-            Control cmbCatWrapper = CreateComboInput(new[] { "All Modules", "Inventory", "Procurement", "Sales", "Data Management", "User Management" }, 180, out cmbModuleCategory);
+            Control cmbCatWrapper = CreateComboInput(new[] { "All Modules", "Inventory", "Procurement", "Sales", "Data Management", "User Management", "Profile" }, 180, out cmbModuleCategory);
             Control txtSearchWrapper = CreateSearchInput("Search Logs...", 250, out txtSearchLog, () => FetchLogsData());
 
             IconButton btnFilter = CreateButton("Apply Filter", IconChar.Filter, "Primary");
@@ -641,6 +641,23 @@ namespace SJ_PC_Store_SIMS.Views
                     p.Controls.Add(ctrl); modal.Controls.AddRange(new Control[] { l, p });
                 };
 
+                // Add this new delegate specifically for the password field
+                Action<string, TextBox, int, int, int> AddRevealableRow = (lblText, txtBox, xLoc, yLoc, w) =>
+                {
+                    Label l = new Label { Text = lblText, Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, Location = new Point(xLoc, yLoc), AutoSize = true };
+                    RoundedPanel p = new RoundedPanel { Location = new Point(xLoc, yLoc + 20), Size = new Size(w, 38), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
+
+                    IconPictureBox iconEye = new IconPictureBox { IconChar = IconChar.EyeSlash, IconSize = 18, Size = new Size(24, 18), Dock = DockStyle.Right, BackColor = Color.Transparent, Cursor = Cursors.Hand, IconColor = UITheme.MutedText };
+                    iconEye.MouseEnter += (s, e) => iconEye.IconColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark;
+                    iconEye.MouseLeave += (s, e) => iconEye.IconColor = UITheme.MutedText;
+                    iconEye.Click += (s, e) => { txtBox.UseSystemPasswordChar = !txtBox.UseSystemPasswordChar; iconEye.IconChar = txtBox.UseSystemPasswordChar ? IconChar.EyeSlash : IconChar.Eye; };
+
+                    txtBox.Dock = DockStyle.Fill; txtBox.BorderStyle = BorderStyle.None; txtBox.Font = new Font("Segoe UI", 10.5F); txtBox.UseSystemPasswordChar = true;
+
+                    p.Controls.Add(iconEye); p.Controls.Add(txtBox);
+                    modal.Controls.AddRange(new Control[] { l, p });
+                };
+
                 // Row 1: Names
                 AddControlRow("First Name", txtFirstName, 35, y, 280);
                 AddControlRow("Last Name", txtLastName, 335, y, 280); y += 75;
@@ -670,7 +687,7 @@ namespace SJ_PC_Store_SIMS.Views
                 // Row 3 (Right Column): Password OR Reset Passkey
                 if (type == "CreateUser")
                 {
-                    AddControlRow("Assign Initial Password", txtPassword, 335, y, 280);
+                    AddRevealableRow("Assign Initial Password", txtPassword, 335, y, 280);
                 }
                 else if (type == "EditUser" && uData != null)
                 {
