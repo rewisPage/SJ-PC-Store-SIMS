@@ -264,7 +264,7 @@ namespace SJ_PC_Store_SIMS.Views
 
             flpCatLeft.Controls.AddRange(new Control[] { txtWrapper, cmbCatWrapper, cmbCondWrapper });
 
-            FontAwesome.Sharp.IconButton btnNewBlueprint = CreateButton("New", IconChar.FolderPlus, "ActionAdd");
+            FontAwesome.Sharp.IconButton btnNewBlueprint = CreateButton("New Blueprint", IconChar.FolderPlus, "ActionAdd");
             btnNewBlueprint.Click += (s, e) => OpenModal("Create");
 
             FontAwesome.Sharp.IconButton btnCategories = CreateButton("Categories", IconChar.List, "Secondary");
