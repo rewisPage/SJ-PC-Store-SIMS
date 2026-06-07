@@ -57,7 +57,7 @@ namespace SJ_PC_Store_SIMS.Views
         private List<Panel> _moduleSections = new List<Panel>();
 
         // RBAC Dynamic Controls
-        private IconButton btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings;
+        private IconButton btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile;
         private Panel pnlSalesSection, pnlInvSection, pnlProcSection, pnlDataSection, pnlUserSection;
 
         public DashboardForm(UserModel user)
@@ -107,7 +107,6 @@ namespace SJ_PC_Store_SIMS.Views
             btnReports = CreateNavButton("Report Center", IconChar.ChartLine, false);
             btnUsers = CreateNavButton("User Management", IconChar.Users, false);
             btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
-            btnSettings = CreateNavButton("Settings", IconChar.Cog, false);
 
             btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
             btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView(_currentUser.UserID)); SetActiveNavButton(btnInv); };
@@ -116,9 +115,10 @@ namespace SJ_PC_Store_SIMS.Views
             btnPOS.Click += (s, e) => { lblPageTitle.Text = "Sales Management"; LoadUserControl(new SalesView(_currentUser.UserID)); SetActiveNavButton(btnPOS); };
             btnReports.Click += (s, e) => { lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID)); SetActiveNavButton(btnReports); };
             btnUsers.Click += (s, e) => { lblPageTitle.Text = "User Management"; LoadUserControl(new UserManagementView(_currentUser.UserID)); SetActiveNavButton(btnUsers); };
+            btnProfile.Click += (s, e) => { lblPageTitle.Text = "My Profile"; LoadUserControl(new ProfileView(_currentUser.UserID)); SetActiveNavButton(btnProfile); };
 
             // Add them to the FlowLayoutPanel (Gaps will automatically close when a button is hidden)
-            flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile, btnSettings });
+            flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile });
 
             BufferedPanel pnlFooter = new BufferedPanel { Dock = DockStyle.Bottom, Height = 70, BackColor = Color.Transparent };
             pnlFooter.Paint += (s, e) =>
@@ -627,9 +627,6 @@ namespace SJ_PC_Store_SIMS.Views
             btnReports.Visible = _currentUser.Permissions.CanViewReports;
             btnData.Visible = _currentUser.Permissions.CanManageData;
             btnUsers.Visible = _currentUser.Permissions.CanManageUsers;
-
-            // We tie Settings to User Management permission as a default Admin trait
-            btnSettings.Visible = _currentUser.Permissions.CanManageUsers;
 
             // 2. Toggle Dashboard Overview Sections
             pnlUserSection.Visible = _currentUser.Permissions.CanManageUsers;
