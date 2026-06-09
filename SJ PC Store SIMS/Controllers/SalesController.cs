@@ -78,7 +78,8 @@ namespace SJ_PC_Store_SIMS.Controllers
                             CreatedOn = Convert.ToDateTime(reader["CreatedOn"]),
                             ModifiedBy = reader["ModifiedBy"]?.ToString(),
                             ModifiedOn = reader["ModifiedOn"] != DBNull.Value ? Convert.ToDateTime(reader["ModifiedOn"]) : (DateTime?)null,
-                            Remarks = reader["Remarks"]?.ToString()
+                            Remarks = reader["Remarks"]?.ToString(),
+                            AmountReceived = reader["AmountReceived"] != DBNull.Value ? Convert.ToDecimal(reader["AmountReceived"]) : 0
                         });
                     }
                 }
@@ -228,37 +229,18 @@ namespace SJ_PC_Store_SIMS.Controllers
             }
         }
 
-        public bool ProcessPayment(string receiptID, string userId)
+        public bool ProcessPayment(string receiptId, string userId, decimal amountReceived)
         {
-            using (var conn = DatabaseHelper.GetConnection())
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
+                // FIX: Added AmountReceived=@Amt to the query
+                SqlCommand cmd = new SqlCommand("UPDATE [TRANSACTION] SET Status='Paid', AmountReceived=@Amt, ModifiedBy=@UID, ModifiedOn=GETDATE() WHERE ReceiptID=@RID", conn);
+                cmd.Parameters.AddWithValue("@Amt", amountReceived);
+                cmd.Parameters.AddWithValue("@UID", userId);
+                cmd.Parameters.AddWithValue("@RID", receiptId);
+
                 conn.Open();
-                var transaction = conn.BeginTransaction();
-                try
-                {
-                    // Mark transaction as Paid
-                    new SqlCommand(
-                        "UPDATE [TRANSACTION] SET Status='Paid', ModifiedBy=@U, ModifiedOn=GETDATE() WHERE ReceiptID=@R",
-                        conn, transaction)
-                    { Parameters = { new SqlParameter("@U", userId), new SqlParameter("@R", receiptID) } }
-                    .ExecuteNonQuery();
-
-                    // Mark all items as Sold
-                    new SqlCommand(
-                        @"UPDATE STOCK_INSTANCE SET Status='Sold'
-                          WHERE SerialNumber IN (SELECT SerialNumber FROM TRANSACTION_ITEM WHERE ReceiptID=@R)",
-                        conn, transaction)
-                    { Parameters = { new SqlParameter("@R", receiptID) } }
-                    .ExecuteNonQuery();
-
-                    transaction.Commit();
-                    return true;
-                }
-                catch
-                {
-                    transaction.Rollback();
-                    return false;
-                }
+                return cmd.ExecuteNonQuery() > 0;
             }
         }
 

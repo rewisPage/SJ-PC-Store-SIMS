@@ -217,6 +217,43 @@ namespace SJ_PC_Store_SIMS.Views
             t.Start();
         }
 
+        // =========================================================================
+        // INVENTORY ALERTS
+        // =========================================================================
+        private void CheckLowStockAlerts()
+        {
+            // Define the threshold for what constitutes "Low Stock"
+            int lowStockThreshold = 5;
+
+            // Filter the cached blueprints for active items strictly at or below the threshold
+            var lowStockItems = _blueprintCache.Where(i => i.PhysicalStockCount <= lowStockThreshold && i.IsActive).ToList();
+
+            if (lowStockItems.Count > 0)
+            {
+                // Aggregate the message to prevent notification spam
+                string msg = lowStockItems.Count == 1
+                    ? $"Item {lowStockItems[0].ItemCode} is running low ({lowStockItems[0].PhysicalStockCount} left)."
+                    : $"{lowStockItems.Count} active items are running below the minimum stock threshold ({lowStockThreshold} units).";
+
+                // Talk directly to the Dashboard to avoid writing this to the SQL Activity Log
+                if (this.FindForm() is DashboardForm dash)
+                {
+                    dash.AddNotification("Low Stock Warning", msg, false); // false triggers your Warning/Error styling
+                }
+
+                // Trigger a single toast
+                ShowToast(msg, false);
+            }
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+
+            // Fire the stock check immediately when the view becomes active
+            CheckLowStockAlerts();
+        }
+
         protected override void OnParentChanged(EventArgs e)
         {
             base.OnParentChanged(e);
@@ -394,6 +431,9 @@ namespace SJ_PC_Store_SIMS.Views
                 if (cond != "Condition: All" && row.Cells["ColCond"].Value.ToString() != cond) match = false;
                 row.Visible = match;
             }
+
+            // Force the grid to redraw to trigger the Paint event
+            dgvCatalog.Invalidate();
         }
 
         private void ApplyStockFilters()
@@ -409,6 +449,8 @@ namespace SJ_PC_Store_SIMS.Views
                 if (stat != "Status: All" && row.Cells["ColStatus"].Value.ToString() != stat) match = false;
                 row.Visible = match;
             }
+
+            dgvStock.Invalidate();
         }
 
         private void ApplyArchiveFilters()
@@ -421,6 +463,8 @@ namespace SJ_PC_Store_SIMS.Views
                 if (!string.IsNullOrEmpty(search) && !row.Cells["ColCodeArch"].Value.ToString().ToLower().Contains(search)) match = false;
                 row.Visible = match;
             }
+
+            dgvArchive.Invalidate();
         }
 
         // =========================================================================
@@ -498,7 +542,21 @@ namespace SJ_PC_Store_SIMS.Views
 
             dgvCatalog.Paint += (s, e) =>
             {
-                if (dgvCatalog.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "The Blueprint Catalog is empty.\nClick 'New Blueprint' to create one!", new Font("Segoe UI", 11F, FontStyle.Italic), dgvCatalog.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                if (dgvCatalog.Rows.Count == 0)
+                {
+                    TextRenderer.DrawText(e.Graphics, "The Blueprint Catalog is empty.\nClick 'New Blueprint' to create one!", new Font("Segoe UI", 11F, FontStyle.Italic), dgvCatalog.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+                else
+                {
+                    // Check if all rows are hidden by the search filter
+                    bool hasVisibleRows = false;
+                    foreach (DataGridViewRow row in dgvCatalog.Rows) { if (row.Visible && !row.IsNewRow) { hasVisibleRows = true; break; } }
+
+                    if (!hasVisibleRows)
+                    {
+                        TextRenderer.DrawText(e.Graphics, "No matching blueprints found.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvCatalog.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    }
+                }
             };
         }
 
@@ -603,7 +661,20 @@ namespace SJ_PC_Store_SIMS.Views
 
             dgvStock.Paint += (s, e) =>
             {
-                if (dgvStock.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "No physical stock available.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvStock.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                if (dgvStock.Rows.Count == 0)
+                {
+                    TextRenderer.DrawText(e.Graphics, "No physical stock available.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvStock.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+                else
+                {
+                    bool hasVisibleRows = false;
+                    foreach (DataGridViewRow row in dgvStock.Rows) { if (row.Visible && !row.IsNewRow) { hasVisibleRows = true; break; } }
+
+                    if (!hasVisibleRows)
+                    {
+                        TextRenderer.DrawText(e.Graphics, "No matching stock items found.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvStock.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    }
+                }
             };
         }
 
@@ -730,7 +801,20 @@ namespace SJ_PC_Store_SIMS.Views
 
             dgvArchive.Paint += (s, e) =>
             {
-                if (dgvArchive.Rows.Count == 0) TextRenderer.DrawText(e.Graphics, "No archived blueprints.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvArchive.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                if (dgvArchive.Rows.Count == 0)
+                {
+                    TextRenderer.DrawText(e.Graphics, "No archived blueprints.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvArchive.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+                else
+                {
+                    bool hasVisibleRows = false;
+                    foreach (DataGridViewRow row in dgvArchive.Rows) { if (row.Visible && !row.IsNewRow) { hasVisibleRows = true; break; } }
+
+                    if (!hasVisibleRows)
+                    {
+                        TextRenderer.DrawText(e.Graphics, "No matching archived items found.", new Font("Segoe UI", 11F, FontStyle.Italic), dgvArchive.ClientRectangle, UITheme.MutedText, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    }
+                }
             };
         }
 
@@ -962,6 +1046,20 @@ namespace SJ_PC_Store_SIMS.Views
                             LoadStock(); LoadBlueprints();
                             modal.Close();
                         }
+                        else if (type == "Flag")
+                        {
+                            string sn = rowData.Cells["ColSerial"].Value.ToString();
+                            if (_inventoryController.FlagStockDefective(sn, cmbReason.SelectedItem.ToString()))
+                                LogAndNotify("Stock Flagged", $"SN {sn} marked as Defective.");
+
+                            LoadStock();
+                            LoadBlueprints();
+
+                            // Add this line to instantly check if flagging this item caused a low stock scenario
+                            CheckLowStockAlerts();
+
+                            modal.Close();
+                        }
                     };
                     pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
                 }
@@ -1174,7 +1272,16 @@ namespace SJ_PC_Store_SIMS.Views
                 Label lblBase = new Label { Text = "Baseline Cost", Font = new Font("Segoe UI", 9F), ForeColor = UITheme.MutedText, Location = new Point(35, y), AutoSize = true };
                 RoundedPanel pnlBase = new RoundedPanel { Location = new Point(35, y + 20), Size = new Size(280, 38), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
                 TextBox txtBase = new TextBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 10.5F) };
-                txtBase.Text = type == "Edit" ? rowData.Cells["ColValue"].Value.ToString().Replace("₱", "").Trim() : "0.00";
+                // FIX: Pull the baseline cost directly from the loaded cache instead of the grid UI
+                if (type == "Edit")
+                {
+                    var cachedItem = _blueprintCache.Find(x => x.ItemCode == rowData.Cells["ColCode"].Value.ToString());
+                    txtBase.Text = cachedItem != null ? cachedItem.BaselineCost.ToString("0.00") : "0.00";
+                }
+                else
+                {
+                    txtBase.Text = "0.00";
+                }
                 txtBase.KeyPress += numbersOnly;
                 if (type == "Create") { txtBase.GotFocus += (s, e) => { if (txtBase.Text == "0.00") txtBase.Text = ""; }; txtBase.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(txtBase.Text)) txtBase.Text = "0.00"; }; }
                 pnlBase.Controls.Add(txtBase); pnlBase.Controls.Add(p1);

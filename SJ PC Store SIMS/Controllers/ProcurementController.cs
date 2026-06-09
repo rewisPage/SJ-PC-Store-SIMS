@@ -119,20 +119,36 @@ namespace SJ_PC_Store_SIMS.Controllers
         }
 
         // PHASE 3 & 4 WORKFLOW: Atomic Goods Receipt & Inventory Injection
-        public bool ProcessGoodsReceipt(string poNumber, List<StockInstanceModel> physicalItems, string userId)
+        public string ProcessGoodsReceipt(string poNumber, List<StockInstanceModel> physicalItems, string userId)
         {
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
                 conn.Open();
+
+                // PRE-VALIDATION: Check if any serial number already exists in the database
+                foreach (var item in physicalItems)
+                {
+                    SqlCommand checkCmd = new SqlCommand("SELECT COUNT(1) FROM STOCK_INSTANCE WHERE SerialNumber = @SN", conn);
+                    checkCmd.Parameters.AddWithValue("@SN", item.SerialNumber);
+                    if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
+                    {
+                        return $"ERROR: Serial Number '{item.SerialNumber}' already exists in the database.";
+                    }
+                }
+
                 SqlTransaction transaction = conn.BeginTransaction();
                 try
                 {
                     // 1. Insert physical serial numbers into Inventory
                     foreach (var item in physicalItems)
                     {
-                        SqlCommand cmd = new SqlCommand("INSERT INTO STOCK_INSTANCE (SerialNumber, ItemCode, Status, PO_Number) VALUES (@SN, @IC, @S, @PO)", conn, transaction);
-                        cmd.Parameters.AddWithValue("@SN", item.SerialNumber); cmd.Parameters.AddWithValue("@IC", item.ItemCode);
-                        cmd.Parameters.AddWithValue("@S", item.Status); cmd.Parameters.AddWithValue("@PO", poNumber);
+                        // FIX: Added SupplierID to the query which was previously missing
+                        SqlCommand cmd = new SqlCommand("INSERT INTO STOCK_INSTANCE (SerialNumber, ItemCode, Status, PO_Number, SupplierID) VALUES (@SN, @IC, @S, @PO, @Sup)", conn, transaction);
+                        cmd.Parameters.AddWithValue("@SN", item.SerialNumber);
+                        cmd.Parameters.AddWithValue("@IC", item.ItemCode);
+                        cmd.Parameters.AddWithValue("@S", item.Status);
+                        cmd.Parameters.AddWithValue("@PO", poNumber);
+                        cmd.Parameters.AddWithValue("@Sup", item.SupplierID);
                         cmd.ExecuteNonQuery();
                     }
                     // 2. Mark PO as Completed
@@ -141,12 +157,12 @@ namespace SJ_PC_Store_SIMS.Controllers
                     statCmd.ExecuteNonQuery();
 
                     transaction.Commit();
-                    return true;
+                    return "SUCCESS";
                 }
-                catch
+                catch (Exception ex)
                 {
                     transaction.Rollback();
-                    return false;
+                    return $"Database error: {ex.Message}";
                 }
             }
         }

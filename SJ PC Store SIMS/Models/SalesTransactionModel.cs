@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace SJ_PC_Store_SIMS.Models
+﻿namespace SJ_PC_Store_SIMS.Models
 {
     public class SalesTransactionModel
     {
@@ -14,6 +11,8 @@ namespace SJ_PC_Store_SIMS.Models
         public decimal Discount { get; set; }
         public decimal Tax { get; set; }
         public decimal GrandTotal { get; set; }
+        public decimal AmountReceived { get; set; }
+        public decimal ChangeAmount => AmountReceived >= GrandTotal ? AmountReceived - GrandTotal : 0;
         public string Status { get; set; }
         public int WarrantyDays { get; set; }
         public string CreatedBy { get; set; }

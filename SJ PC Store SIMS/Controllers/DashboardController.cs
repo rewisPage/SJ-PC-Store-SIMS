@@ -53,12 +53,12 @@ namespace SJ_PC_Store_SIMS.Controllers
             {
                 conn.Open();
 
-                // CHANGED: Added "AND Status = 'Paid'" so cancelled orders and quotations are ignored
-                string queryRevenue = @"SELECT ISNULL(SUM(GrandTotal), 0) FROM [TRANSACTION] WHERE CONVERT(date, OrderDate) = CONVERT(date, GETDATE()) AND Status = 'Paid'";
+                // CHANGED: Added "AND Status = 'Completed'" so cancelled orders and quotations are ignored
+                string queryRevenue = @"SELECT ISNULL(SUM(GrandTotal), 0) FROM [TRANSACTION] WHERE CONVERT(date, OrderDate) = CONVERT(date, GETDATE()) AND Status = 'Completed'";
                 using (SqlCommand cmd = new SqlCommand(queryRevenue, conn)) { stats.TodaysRevenue = Convert.ToDecimal(cmd.ExecuteScalar()); }
 
-                // CHANGED: Added "AND Status = 'Paid'" so the dashboard transaction count perfectly matches the revenue
-                string queryTransactions = @"SELECT COUNT(ReceiptID) FROM [TRANSACTION] WHERE CONVERT(date, OrderDate) = CONVERT(date, GETDATE()) AND Status = 'Paid'";
+                // CHANGED: Added "AND Status = 'Completed'" so the dashboard transaction count perfectly matches the revenue
+                string queryTransactions = @"SELECT COUNT(ReceiptID) FROM [TRANSACTION] WHERE CONVERT(date, OrderDate) = CONVERT(date, GETDATE()) AND Status = 'Completed'";
                 using (SqlCommand cmd = new SqlCommand(queryTransactions, conn)) { stats.TransactionsToday = Convert.ToInt32(cmd.ExecuteScalar()); }
                 string queryStockValue = @"SELECT ISNULL(SUM(m.CurrentValue), 0) FROM STOCK_INSTANCE s JOIN ITEM_MASTER m ON s.ItemCode = m.ItemCode WHERE s.Status = 'Available'";
                 using (SqlCommand cmd = new SqlCommand(queryStockValue, conn)) { stats.TotalStockValue = Convert.ToDecimal(cmd.ExecuteScalar()); }

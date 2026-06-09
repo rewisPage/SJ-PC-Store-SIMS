@@ -1363,11 +1363,16 @@ namespace SJ_PC_Store_SIMS.Views
 
                 btnAction.Click += (s, e) =>
                 {
-                    if (_salesController.ProcessPayment(_selectedTransaction.ReceiptID, _activeUserId))
+                    // Capture the exact amount the user typed in the textbox
+                    decimal amtRec = 0;
+                    decimal.TryParse(txtAmtRec.Text, out amtRec);
+
+                    // Pass the amtRec to our newly updated controller method
+                    if (_salesController.ProcessPayment(_selectedTransaction.ReceiptID, _activeUserId, amtRec))
                     {
                         _selectedTransaction.Status = "Paid";
+                        _selectedTransaction.AmountReceived = amtRec; // Instantly update local model for PDF
 
-                        // CHANGED: Fires a detailed, successful alert text message on completion
                         LogAndNotify("Payment Confirmed", $"Successfully processed payment for order {_selectedTransaction.ReceiptID}.", true);
 
                         LoadData(); SwitchView("Profile"); modal.Close();
@@ -1697,6 +1702,19 @@ namespace SJ_PC_Store_SIMS.Views
             g.DrawString("GRAND TOTAL:", fSub, Brushes.DarkBlue, 520, y);
             g.DrawString(_selectedTransaction.GrandTotal.ToString("C2"), fSub, Brushes.Black, 680, y);
 
+            // ---- ADD THIS NEW BLOCK BELOW IT ----
+            // Only render Amount Received and Change if it is an actual order, NOT a quotation
+            if (!isQuotation)
+            {
+                y += 35;
+                g.DrawString("Amount Received:", fN, Brushes.DimGray, 540, y);
+                g.DrawString(_selectedTransaction.AmountReceived.ToString("C2"), fN, Brushes.Black, 680, y);
+                y += 25;
+
+                g.DrawString("Change:", fN, Brushes.DimGray, 540, y);
+                g.DrawString(_selectedTransaction.ChangeAmount.ToString("C2"), fB, Brushes.DarkGreen, 680, y);
+            }
+
             // ---- TERMS AND CONDITIONS ----
             y += 50;
             g.DrawString("Terms & Conditions:", fSub, Brushes.DarkBlue, 50, y); y += 25;
@@ -1728,7 +1746,34 @@ namespace SJ_PC_Store_SIMS.Views
                 int maxW = attachRow.Width - 30 - 10;
                 Label lblFile = new Label { Font = new Font("Segoe UI", 9.5F), ForeColor = Color.FromArgb(59, 130, 246), Cursor = Cursors.Hand, AutoSize = false, Width = maxW, Height = 20, TextAlign = ContentAlignment.MiddleLeft, Location = new Point(5, 6) };
                 lblFile.Text = TruncateText(att.FileName, lblFile.Font, maxW);
-                lblFile.Click += (s, e) => { try { System.Diagnostics.Process.Start(att.FilePath); } catch { } };
+                // 1. The Modern .NET Shell Execution Fix
+                lblFile.Click += (s, e) =>
+                {
+                    try
+                    {
+                        if (!System.IO.File.Exists(att.FilePath))
+                        {
+                            ShowToast("File not found. It may have been moved or deleted from the server.", false);
+                            return;
+                        }
+
+                        new System.Diagnostics.Process
+                        {
+                            StartInfo = new System.Diagnostics.ProcessStartInfo(att.FilePath)
+                            {
+                                UseShellExecute = true
+                            }
+                        }.Start();
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowToast($"Cannot open file: {ex.Message}", false);
+                    }
+                };
+
+                // 2. Added UI Polish: Makes it look like a clickable web link when hovered over
+                lblFile.MouseEnter += (s, e) => { lblFile.Font = new Font(lblFile.Font, FontStyle.Underline | FontStyle.Bold); };
+                lblFile.MouseLeave += (s, e) => { lblFile.Font = new Font(lblFile.Font, FontStyle.Regular); };
                 IconButton btnDel = new IconButton { IconChar = IconChar.Trash, IconSize = 16, Size = new Size(25, 25), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = Color.Transparent, IconColor = Color.FromArgb(239, 68, 68), ForeColor = Color.FromArgb(239, 68, 68), Location = new Point(attachRow.Width - 30, 3) };
                 btnDel.FlatAppearance.BorderSize = 0; btnDel.Click += (s, e) => { if (_attachController.DeleteAttachment(att.AttachmentID)) { LogAndNotify("Attachment Deleted", att.FileName, true); LoadAttachments(); } };
                 attachRow.Controls.Add(lblFile); attachRow.Controls.Add(btnDel); flpAttachments.Controls.Add(attachRow);

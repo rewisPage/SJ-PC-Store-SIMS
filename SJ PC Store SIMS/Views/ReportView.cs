@@ -154,6 +154,7 @@ namespace SJ_PC_Store_SIMS.Views
         // VIEW VARIABLES
         // =========================================================================
         private ReportController _reportController;
+        private InventoryController _inventoryController; // ADD THIS
         private string _activeUserId;
 
         private SmoothPanel pnlTabs, pnlContent, pnlSalesTab, pnlInventoryTab, pnlProcurementTab, pnlStocksTab;
@@ -188,6 +189,7 @@ namespace SJ_PC_Store_SIMS.Views
         {
             _activeUserId = currentUserId;
             _reportController = new ReportController();
+            _inventoryController = new InventoryController();
 
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
             this.Padding = new Padding(35, 15, 35, 35);
@@ -250,6 +252,18 @@ namespace SJ_PC_Store_SIMS.Views
             btnFilter.Click += (s, e) => FetchSalesData();
             flpLeft.Controls.Add(btnFilter);
 
+            // ADD THIS NEW BLOCK: Reset Button for Sales
+            IconButton btnResetSales = CreateButton("Reset", IconChar.Undo, "Secondary");
+            btnResetSales.Click += (s, e) =>
+            {
+                dtpSalesFrom.Value = DateTime.Now.AddDays(-30);
+                dtpSalesTo.Value = DateTime.Now;
+                if (cmbSalesStatus.Items.Count > 0) cmbSalesStatus.SelectedIndex = 0;
+                txtSearchSales.Text = "Search Receipt...";
+                FetchSalesData();
+            };
+            flpLeft.Controls.Add(btnResetSales);
+
             IconButton btnExport = CreateButton("Export PDF", IconChar.FilePdf, "ActionAdd");
             btnExport.Dock = DockStyle.Right;
             btnExport.Click += (s, e) => { _activePrintTab = "Sales"; GeneratePDF(); };
@@ -295,13 +309,27 @@ namespace SJ_PC_Store_SIMS.Views
 
             FlowLayoutPanel flpLeft = new FlowLayoutPanel { Dock = DockStyle.Left, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent, Padding = new Padding(0) };
 
-            Control cmbCatWrapper = CreateComboInput(new[] { "All Categories", "Laptops", "Desktops", "Components", "Peripherals" }, 160, out cmbInvCategory);
+            // Fetch dynamic categories from the database via the Inventory Controller
+            List<string> categoryList = new List<string> { "All Categories" };
+            categoryList.AddRange(_inventoryController.GetCategories());
+
+            Control cmbCatWrapper = CreateComboInput(categoryList.ToArray(), 160, out cmbInvCategory);
             Control txtSearchWrapper = CreateSearchInput("Search Item Code...", 250, out txtSearchInv, () => FetchInventoryData());
             flpLeft.Controls.AddRange(new Control[] { cmbCatWrapper, txtSearchWrapper });
 
             IconButton btnFilter = CreateButton("Apply Filter", IconChar.Filter, "Primary");
             btnFilter.Click += (s, e) => FetchInventoryData();
             flpLeft.Controls.Add(btnFilter);
+
+            // ADD THIS NEW BLOCK: Reset Button for Inventory
+            IconButton btnResetInv = CreateButton("Reset", IconChar.Undo, "Secondary");
+            btnResetInv.Click += (s, e) =>
+            {
+                if (cmbInvCategory.Items.Count > 0) cmbInvCategory.SelectedIndex = 0;
+                txtSearchInv.Text = "Search Item Code...";
+                FetchInventoryData();
+            };
+            flpLeft.Controls.Add(btnResetInv);
 
             IconButton btnExport = CreateButton("Export PDF", IconChar.FilePdf, "ActionAdd");
             btnExport.Dock = DockStyle.Right;
@@ -365,6 +393,18 @@ namespace SJ_PC_Store_SIMS.Views
             btnFilter.Click += (s, e) => FetchProcurementData();
             flpLeft.Controls.Add(btnFilter);
 
+            // ADD THIS NEW BLOCK: Reset Button for Procurement
+            IconButton btnResetProc = CreateButton("Reset", IconChar.Undo, "Secondary");
+            btnResetProc.Click += (s, e) =>
+            {
+                dtpProcFrom.Value = DateTime.Now.AddDays(-30);
+                dtpProcTo.Value = DateTime.Now;
+                if (cmbProcStatus.Items.Count > 0) cmbProcStatus.SelectedIndex = 0;
+                txtSearchProc.Text = "Search PO...";
+                FetchProcurementData();
+            };
+            flpLeft.Controls.Add(btnResetProc);
+
             IconButton btnExport = CreateButton("Export PDF", IconChar.FilePdf, "ActionAdd");
             btnExport.Dock = DockStyle.Right;
             btnExport.Click += (s, e) => { _activePrintTab = "Procurement"; GeneratePDF(); };
@@ -418,6 +458,16 @@ namespace SJ_PC_Store_SIMS.Views
             IconButton btnFilter = CreateButton("Apply Filter", IconChar.Filter, "Primary");
             btnFilter.Click += (s, e) => FetchStocksData();
             flpLeft.Controls.Add(btnFilter);
+
+            // ADD THIS NEW BLOCK: Reset Button for Stocks
+            IconButton btnResetStocks = CreateButton("Reset", IconChar.Undo, "Secondary");
+            btnResetStocks.Click += (s, e) =>
+            {
+                if (cmbStockStatus.Items.Count > 0) cmbStockStatus.SelectedIndex = 0;
+                txtSearchStock.Text = "Search Serial/Code...";
+                FetchStocksData();
+            };
+            flpLeft.Controls.Add(btnResetStocks);
 
             IconButton btnExport = CreateButton("Export PDF", IconChar.FilePdf, "ActionAdd");
             btnExport.Dock = DockStyle.Right;
@@ -489,10 +539,15 @@ namespace SJ_PC_Store_SIMS.Views
         {
             dgvSales.Rows.Clear();
             var pageData = _salesData.Skip(_salesPage * PAGE_SIZE).Take(PAGE_SIZE).ToList();
+
             foreach (var item in pageData)
             {
-                dgvSales.Rows.Add(item.OrderDate.ToString("MMM dd, yyyy"), item.ReceiptID, item.CustomerName, item.Status, item.GrandTotal);
+                // FIX: Display a dash instead of the price if the order is Cancelled or Returned
+                object displayTotal = (item.Status == "Cancelled" || item.Status == "Returned") ? "-" : (object)item.GrandTotal;
+
+                dgvSales.Rows.Add(item.OrderDate.ToString("MMM dd, yyyy"), item.ReceiptID, item.CustomerName, item.Status, displayTotal);
             }
+
             UpdatePaginationLabel(lblSalesPage, _salesPage, _salesData.Count);
         }
 
@@ -568,7 +623,8 @@ namespace SJ_PC_Store_SIMS.Views
             // Report Header
             g.DrawString("SJ PC STORE - SYSTEM REPORT", fTitle, Brushes.Black, 50, y); y += 35;
             g.DrawString($"Report Module: {_activePrintTab.ToUpper()} REPORT", fSub, Brushes.DarkBlue, 50, y); y += 20;
-            g.DrawString($"Generated On: {DateTime.Now:MMM dd, yyyy HH:mm:ss}", fN, Brushes.DimGray, 50, y); y += 30;
+            g.DrawString($"Generated On: {DateTime.Now:MMM dd, yyyy HH:mm:ss}", fN, Brushes.DimGray, 50, y); y += 20;
+            g.DrawString($"Generated By: {_activeUserId}", fN, Brushes.DimGray, 50, y); y += 30; // ADDED THIS LINE
 
             g.DrawLine(Pens.Black, 50, y, 1100, y); y += 20;
 
@@ -598,13 +654,22 @@ namespace SJ_PC_Store_SIMS.Views
                 g.DrawString(item.ReceiptID, fN, Brushes.Black, 200, y);
                 g.DrawString(item.CustomerName, fN, Brushes.Black, 400, y);
                 g.DrawString(item.Status, fN, Brushes.Black, 750, y);
-                g.DrawString(item.GrandTotal.ToString("C2"), fN, Brushes.Black, 950, y);
+
+                // FIX: Hide the price string if the order is Cancelled or Returned
+                string totalStr = (item.Status == "Cancelled" || item.Status == "Returned") ? "-" : item.GrandTotal.ToString("C2");
+                g.DrawString(totalStr, fN, Brushes.Black, 950, y);
 
                 y += 30; _pdfPrintIndex++;
                 if (y > 750) { e.HasMorePages = true; return; }
             }
-            e.HasMorePages = false; _pdfPrintIndex = 0; // End of Document
-            PrintReportFooter(g, y, _salesData.Sum(x => x.GrandTotal), fN, fB);
+
+            e.HasMorePages = false;
+            _pdfPrintIndex = 0; // End of Document
+
+            // FIX: Filter out Cancelled AND Returned orders from the final PDF revenue sum
+            decimal activeSum = _salesData.Where(x => x.Status != "Cancelled" && x.Status != "Returned").Sum(x => x.GrandTotal);
+
+            PrintReportFooter(g, ref y, "TOTAL REVENUE:", activeSum.ToString("C2"), fB);
         }
 
         private void PrintInventoryRows(Graphics g, PrintPageEventArgs e, ref int y, Font fB, Font fN)
@@ -631,8 +696,10 @@ namespace SJ_PC_Store_SIMS.Views
                 y += 30; _pdfPrintIndex++;
                 if (y > 750) { e.HasMorePages = true; return; }
             }
-            e.HasMorePages = false; _pdfPrintIndex = 0;
-            PrintReportFooter(g, y, _inventoryData.Sum(x => x.TotalAssetValue), fN, fB);
+            e.HasMorePages = false;
+            _pdfPrintIndex = 0;
+            decimal totalAsset = _inventoryData.Sum(x => x.TotalAssetValue);
+            PrintReportFooter(g, ref y, "TOTAL ASSET VALUE:", totalAsset.ToString("C2"), fB);
         }
 
         private void PrintProcurementRows(Graphics g, PrintPageEventArgs e, ref int y, Font fB, Font fN)
@@ -657,8 +724,12 @@ namespace SJ_PC_Store_SIMS.Views
                 y += 30; _pdfPrintIndex++;
                 if (y > 750) { e.HasMorePages = true; return; }
             }
-            e.HasMorePages = false; _pdfPrintIndex = 0;
-            PrintReportFooter(g, y, _procurementData.Sum(x => x.GrandTotal), fN, fB);
+            e.HasMorePages = false;
+            _pdfPrintIndex = 0;
+            // Filter out Cancelled POs from the expenditure sum
+            decimal totalProc = _procurementData.Where(x => x.Status != "Cancelled").Sum(x => x.GrandTotal);
+
+            PrintReportFooter(g, ref y, "TOTAL EXPENDITURE:", totalProc.ToString("C2"), fB);
         }
 
         private void PrintStocksRows(Graphics g, PrintPageEventArgs e, ref int y, Font fB, Font fN)
@@ -695,10 +766,22 @@ namespace SJ_PC_Store_SIMS.Views
             g.DrawString(_stocksData.Count.ToString(), fB, Brushes.Black, 950, y);
         }
 
-        private void PrintReportFooter(Graphics g, int y, decimal totalSum, Font fN, Font fB)
+        private void PrintReportFooter(Graphics g, ref int y, string label, string value, Font fB)
         {
-            y += 10;
-            g.DrawString(totalSum.ToString("C2"), fB, Brushes.Black, 950, y);
+            y += 15;
+
+            // Draw a solid line to separate the table from the totals
+            g.DrawLine(Pens.Black, 50, y, 1100, y);
+            y += 15;
+
+            // Draw the specific label and the value aligned to the right
+            g.DrawString(label, fB, Brushes.DarkBlue, 750, y);
+            g.DrawString(value, fB, Brushes.Black, 950, y);
+
+            y += 40;
+
+            // Draw a professional end-of-document marker centered on the page
+            g.DrawString("*** END OF REPORT ***", new Font("Arial", 9, FontStyle.Italic), Brushes.DimGray, 500, y);
         }
 
         // =========================================================================

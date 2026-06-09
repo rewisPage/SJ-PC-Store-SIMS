@@ -445,14 +445,20 @@ namespace SJ_PC_Store_SIMS.Views
                         _isFirstLoad = false;
                     }
 
-                    if (stats.LowStockAlerts > 0 && stats.LowStockAlerts != _lastLowStockCount)
+                    // ==========================================================
+                    // RBAC FILTER: Only trigger if the user has Inventory rights
+                    // ==========================================================
+                    if (_currentUser != null && _currentUser.Permissions != null && _currentUser.Permissions.CanManageInventory)
                     {
-                        AddNotification("Low Stock Alert", $"You have {stats.LowStockAlerts} blueprints running out of stock.", false);
-                        _lastLowStockCount = stats.LowStockAlerts;
-                    }
-                    else if (stats.LowStockAlerts == 0)
-                    {
-                        _lastLowStockCount = 0;
+                        if (stats.LowStockAlerts > 0 && stats.LowStockAlerts != _lastLowStockCount)
+                        {
+                            AddNotification("Low Stock Alert", $"You have {stats.LowStockAlerts} blueprints running out of stock.", false);
+                            _lastLowStockCount = stats.LowStockAlerts;
+                        }
+                        else if (stats.LowStockAlerts == 0)
+                        {
+                            _lastLowStockCount = 0;
+                        }
                     }
                 }
             }

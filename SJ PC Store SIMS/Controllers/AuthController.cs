@@ -80,6 +80,25 @@ namespace SJ_PC_Store_SIMS.Controllers
             }
         }
 
+        public bool ResetPasswordWithPasskey(string username, string newPassword)
+        {
+            using (SqlConnection conn = DatabaseHelper.GetConnection())
+            {
+                conn.Open();
+                // Update the password hash where the username matches and the account is active
+                string query = "UPDATE [USER] SET PasswordHash = @PH WHERE Username = @UN AND Status = 'Active'";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    // Hash the new password using your existing BCrypt implementation
+                    cmd.Parameters.AddWithValue("@PH", BCrypt.Net.BCrypt.HashPassword(newPassword));
+                    cmd.Parameters.AddWithValue("@UN", username);
+
+                    return cmd.ExecuteNonQuery() > 0;
+                }
+            }
+        }
+
         private void SeedDefaultAdmin()
         {
             using (SqlConnection conn = DatabaseHelper.GetConnection())

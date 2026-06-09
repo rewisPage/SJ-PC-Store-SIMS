@@ -1433,38 +1433,63 @@ namespace SJ_PC_Store_SIMS.Views
 
                 Button btnAction = new Button { Text = "Save to Inventory", Size = new Size(220, 38), FlatStyle = FlatStyle.Flat, BackColor = UITheme.IsDarkMode ? UITheme.AccentYellow : UITheme.PrimaryDark, ForeColor = UITheme.IsDarkMode ? Color.Black : Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand, Location = new Point(modal.Width - 25 - 220, 16) };
                 btnAction.FlatAppearance.BorderSize = 0;
-
                 btnAction.Click += (s, e) =>
                 {
                     List<StockInstanceModel> physicalItems = new List<StockInstanceModel>();
+                    HashSet<string> duplicateCheck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
                     foreach (Control c in body.Controls)
                     {
                         if (c is RoundedPanel rp && rp.Location.X == 200)
                         {
                             TextBox tb = (TextBox)rp.Controls[0];
-                            if (!string.IsNullOrWhiteSpace(tb.Text))
+                            string serialInput = tb.Text.Trim();
+
+                            // 1. Validate against blank/empty textboxes
+                            if (string.IsNullOrWhiteSpace(serialInput))
                             {
-                                string stat = "Available"; string itemCode = "UNKNOWN";
-                                foreach (Control peer in body.Controls)
-                                {
-                                    if (peer is RoundedPanel rp2 && rp2.Location.X == 560 && rp2.Location.Y == rp.Location.Y) stat = ((DarkComboBox)rp2.Controls[0]).Text;
-                                    if (peer is Label lbl && lbl.Location.X == 80 && Math.Abs(lbl.Location.Y - rp.Location.Y) < 10) itemCode = lbl.Text;
-                                }
-                                physicalItems.Add(new StockInstanceModel { SerialNumber = tb.Text, ItemCode = itemCode, Status = stat, SupplierID = _selectedPO.SupplierID, PO_Number = _selectedPO.PO_Number });
+                                ShowToast("Please fill in all Serial Number fields.", false);
+                                return;
                             }
+
+                            // 2. Validate against duplicate serial numbers within the form itself
+                            if (!duplicateCheck.Add(serialInput))
+                            {
+                                ShowToast($"Duplicate input detected: '{serialInput}'. Serial Numbers must be unique.", false);
+                                return;
+                            }
+
+                            string stat = "Available"; string itemCode = "UNKNOWN";
+                            foreach (Control peer in body.Controls)
+                            {
+                                if (peer is RoundedPanel rp2 && rp2.Location.X == 560 && rp2.Location.Y == rp.Location.Y) stat = ((DarkComboBox)rp2.Controls[0]).Text;
+                                if (peer is Label lbl && lbl.Location.X == 80 && Math.Abs(lbl.Location.Y - rp.Location.Y) < 10) itemCode = lbl.Text;
+                            }
+                            physicalItems.Add(new StockInstanceModel { SerialNumber = serialInput, ItemCode = itemCode, Status = stat, SupplierID = _selectedPO.SupplierID, PO_Number = _selectedPO.PO_Number });
                         }
                     }
+
                     try
                     {
-                        if (_procController.ProcessGoodsReceipt(_selectedPO.PO_Number, physicalItems, _activeUserId))
+                        // Call the updated controller method
+                        string result = _procController.ProcessGoodsReceipt(_selectedPO.PO_Number, physicalItems, _activeUserId);
+
+                        if (result == "SUCCESS")
                         {
                             _selectedPO.Status = "Completed";
                             LogAndNotify("Goods Receipt Processed", $"Inventory Synced for {_selectedPO.PO_Number}.", true);
                             LoadData(); SwitchView("Profile"); modal.Close();
                         }
-                        else { ShowToast("Database error syncing inventory.", false); }
+                        else
+                        {
+                            // Display the exact validation/database error (e.g. "ERROR: Serial Number '...' already exists")
+                            ShowToast(result, false);
+                        }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        ShowToast("Error: " + ex.Message, false);
+                    }
                 };
 
                 pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
@@ -1601,8 +1626,30 @@ namespace SJ_PC_Store_SIMS.Views
 
                 lblFile.Click += (s, e) =>
                 {
-                    try { System.Diagnostics.Process.Start(att.FilePath); } catch { ShowToast("Cannot open file.", false); }
+                    try
+                    {
+                        // 1. Verify the file actually exists on the drive before trying to open it
+                        if (!System.IO.File.Exists(att.FilePath))
+                        {
+                            ShowToast("File not found. It may have been moved or deleted from the server.", false);
+                            return;
+                        }
+
+                        // 2. Force modern .NET to use the Windows Shell (opens the default app for the file extension)
+                        new System.Diagnostics.Process
+                        {
+                            StartInfo = new System.Diagnostics.ProcessStartInfo(att.FilePath)
+                            {
+                                UseShellExecute = true
+                            }
+                        }.Start();
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowToast($"Cannot open file: {ex.Message}", false);
+                    }
                 };
+
                 lblFile.MouseEnter += (s, e) => { lblFile.Font = new Font(lblFile.Font, FontStyle.Underline | FontStyle.Bold); };
                 lblFile.MouseLeave += (s, e) => { lblFile.Font = new Font(lblFile.Font, FontStyle.Regular); };
 
