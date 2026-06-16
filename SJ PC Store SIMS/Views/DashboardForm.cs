@@ -1,9 +1,16 @@
 ﻿using FontAwesome.Sharp;
+using ScottPlot;
+using ScottPlot.WinForms;
 using SJ_PC_Store_SIMS.Controllers;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
 using System.Drawing.Drawing2D;
+using Color = System.Drawing.Color;
+using Font = System.Drawing.Font;
+using FontStyle = System.Drawing.FontStyle;
+using Label = System.Windows.Forms.Label;
 using Panel = System.Windows.Forms.Panel;
+
 
 namespace SJ_PC_Store_SIMS.Views
 {
@@ -31,6 +38,8 @@ namespace SJ_PC_Store_SIMS.Views
         private BufferedPanel pnlHeader;
         private Panel pnlWorkspace;
         private Panel pnlDashboardContainer;
+        private Panel pnlTopItems;
+        private Panel pnlLowStockItems;
 
         // Notification UI
         private BufferedPanel pnlNotifDropdown;
@@ -60,6 +69,11 @@ namespace SJ_PC_Store_SIMS.Views
         private IconButton btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile;
         private Panel pnlSalesSection, pnlInvSection, pnlProcSection, pnlDataSection, pnlUserSection;
 
+        private FormsPlot _salesBarChart;
+        private FormsPlot _inventoryDonutChart;
+        private FormsPlot _stockStatusPieChart;
+        private FormsPlot _procurementBarChart;
+
         public DashboardForm(UserModel user)
         {
             _currentUser = user;
@@ -68,6 +82,7 @@ namespace SJ_PC_Store_SIMS.Views
             this.DoubleBuffered = true;
 
             InitializeProgrammaticUI();
+            InitializeCharts();
 
             PopulateUserNotifications();
             ApplyTheme();
@@ -75,6 +90,36 @@ namespace SJ_PC_Store_SIMS.Views
             StartClock();
 
             LoadDashboardData();
+        }
+
+        // Strict UITheme Color Palette Generator for ScottPlot
+        private ScottPlot.Color[] GetStrictThemePalette()
+        {
+            return new[] {
+                ScottPlot.Color.FromColor(UITheme.PrimaryDark),
+                ScottPlot.Color.FromColor(UITheme.AccentYellow),
+                ScottPlot.Color.FromColor(UITheme.SecondaryDark),
+                ScottPlot.Color.FromColor(UITheme.CurrentBorder),
+                ScottPlot.Color.FromColor(UITheme.MutedText)
+            };
+        }
+
+        private void InitializeCharts()
+        {
+            // Sales Bar Chart (Wide)
+            _salesBarChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(800, 280), BackColor = Color.Transparent };
+            ((Panel)pnlSalesSection.Controls[1]).Controls.Add(_salesBarChart);
+
+            // Inventory Pies (Side-by-Side next to the vertical cards)
+            _inventoryDonutChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(400, 420), BackColor = Color.Transparent };
+            ((Panel)pnlInvSection.Controls[1]).Controls.Add(_inventoryDonutChart);
+
+            _stockStatusPieChart = new FormsPlot { Location = new Point(770, 0), Size = new Size(400, 420), BackColor = Color.Transparent };
+            ((Panel)pnlInvSection.Controls[1]).Controls.Add(_stockStatusPieChart);
+
+            // Procurement Bar Chart (Wide)
+            _procurementBarChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(800, 280), BackColor = Color.Transparent };
+            ((Panel)pnlProcSection.Controls[1]).Controls.Add(_procurementBarChart);
         }
 
         private void InitializeProgrammaticUI()
@@ -103,17 +148,17 @@ namespace SJ_PC_Store_SIMS.Views
             btnPOS = CreateNavButton("Sales POS", IconChar.ShoppingCart, false);
             btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
             btnProc = CreateNavButton("Procurement", IconChar.TruckLoading, false);
-            btnData = CreateNavButton("Data Management", IconChar.Database, false);
+            btnData = CreateNavButton("Supplier Management", IconChar.Database, false);
             btnReports = CreateNavButton("Report Center", IconChar.ChartLine, false);
             btnUsers = CreateNavButton("User Management", IconChar.Users, false);
             btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
 
             btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
             btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView(_currentUser.UserID)); SetActiveNavButton(btnInv); };
-            btnData.Click += (s, e) => { lblPageTitle.Text = "Data Management (Suppliers)"; LoadUserControl(new DataManagementView(_currentUser.UserID)); SetActiveNavButton(btnData); };
+            btnData.Click += (s, e) => { lblPageTitle.Text = "Supplier Management"; LoadUserControl(new DataManagementView(_currentUser.UserID)); SetActiveNavButton(btnData); };
             btnProc.Click += (s, e) => { lblPageTitle.Text = "Procurement Management"; LoadUserControl(new ProcurementView(_currentUser.UserID)); SetActiveNavButton(btnProc); };
             btnPOS.Click += (s, e) => { lblPageTitle.Text = "Sales Management"; LoadUserControl(new SalesView(_currentUser.UserID)); SetActiveNavButton(btnPOS); };
-            btnReports.Click += (s, e) => { lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID)); SetActiveNavButton(btnReports); };
+            btnReports.Click += (s, e) => { lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID, _currentUser.FirstName, _currentUser.LastName)); SetActiveNavButton(btnReports); };
             btnUsers.Click += (s, e) => { lblPageTitle.Text = "User Management"; LoadUserControl(new UserManagementView(_currentUser.UserID)); SetActiveNavButton(btnUsers); };
             btnProfile.Click += (s, e) => { lblPageTitle.Text = "My Profile"; LoadUserControl(new ProfileView(_currentUser.UserID)); SetActiveNavButton(btnProfile); };
 
@@ -204,23 +249,33 @@ namespace SJ_PC_Store_SIMS.Views
             pnlWorkspace = new Panel { Dock = DockStyle.Fill };
             pnlDashboardContainer = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(40, 20, 40, 40) };
 
-            pnlSalesSection = CreateModuleSection("SALES OVERVIEW", out Panel salesGrid);
+            // --- NATIVE WORKSPACE LAYOUT ENGINE (VERTICAL REDESIGN) ---
+
+            pnlSalesSection = CreateModuleSection("SALES OVERVIEW", 350, out Panel salesGrid);
             salesGrid.Controls.Add(CreateStatCard("Today's Revenue", "₱ 0.00", "+0% from yesterday", IconChar.Wallet, true, 0, 0));
-            salesGrid.Controls.Add(CreateStatCard("Transactions Today", "0", "All successful", IconChar.Receipt, true, 340, 0));
+            salesGrid.Controls.Add(CreateStatCard("Transactions Today", "0", "All successful", IconChar.Receipt, true, 0, 140)); // Stacked Vertically
 
-            pnlInvSection = CreateModuleSection("INVENTORY OVERVIEW", out Panel invGrid);
+            // Add Top 3 Items Sold Panel - Position to the right of Sales History chart
+            pnlTopItems = new Panel { Location = new Point(1160, 0), Size = new Size(380, 280), BackColor = Color.Transparent };
+            salesGrid.Controls.Add(pnlTopItems);
+
+            pnlInvSection = CreateModuleSection("INVENTORY OVERVIEW", 490, out Panel invGrid);
             invGrid.Controls.Add(CreateStatCard("Total Stock Value", "₱ 0.00", "Current valuation", IconChar.Boxes, false, 0, 0));
-            invGrid.Controls.Add(CreateStatCard("Low Stock Alerts", "0 Items", "Needs immediate restocking", IconChar.ExclamationTriangle, false, 340, 0, true));
-            invGrid.Controls.Add(CreateStatCard("Registered Products", "0", "Total items in database", IconChar.BoxOpen, false, 680, 0));
+            invGrid.Controls.Add(CreateStatCard("Low Stock Alerts", "0 Items", "Needs immediate restocking", IconChar.ExclamationTriangle, false, 0, 140, true)); // Stacked
+            invGrid.Controls.Add(CreateStatCard("Registered Products", "0", "Total items in database", IconChar.BoxOpen, false, 0, 280)); // Stacked
 
-            pnlProcSection = CreateModuleSection("PROCUREMENT OVERVIEW", out Panel procGrid);
+            // Add Low Stock Items Panel - Position to the right of inventory cards
+            pnlLowStockItems = new Panel { Location = new Point(1160, 0), Size = new Size(380, 280), BackColor = Color.Transparent };
+            invGrid.Controls.Add(pnlLowStockItems);
+
+            pnlProcSection = CreateModuleSection("PROCUREMENT OVERVIEW", 350, out Panel procGrid);
             procGrid.Controls.Add(CreateStatCard("Pending Procurements", "0 Batches", "Arriving this week", IconChar.Truck, false, 0, 0));
-            procGrid.Controls.Add(CreateStatCard("Total Purchase Orders", "0", "Lifetime POs logged", IconChar.FileInvoice, false, 340, 0));
+            procGrid.Controls.Add(CreateStatCard("Total Purchase Orders", "0", "Lifetime POs logged", IconChar.FileInvoice, false, 0, 140)); // Stacked
 
-            pnlDataSection = CreateModuleSection("DATA MANAGEMENT OVERVIEW", out Panel dataGrid);
+            pnlDataSection = CreateModuleSection("SUPPLIER MANAGEMENT OVERVIEW", 190, out Panel dataGrid);
             dataGrid.Controls.Add(CreateStatCard("Registered Suppliers", "0", "Active business partners", IconChar.Handshake, false, 0, 0));
 
-            pnlUserSection = CreateModuleSection("USER MANAGEMENT OVERVIEW", out Panel userGrid);
+            pnlUserSection = CreateModuleSection("USER MANAGEMENT OVERVIEW", 190, out Panel userGrid);
             userGrid.Controls.Add(CreateStatCard("Active Users", "0", "System Admins & Cashiers", IconChar.Users, false, 0, 0));
 
             // Add them to the Workspace Container (Top Docking will automatically shift panels up when one is hidden)
@@ -421,6 +476,118 @@ namespace SJ_PC_Store_SIMS.Views
             this.ResumeLayout(true);
         }
 
+        private void PopulateTopItemsPanel(List<TopItemModel> topItems)
+        {
+            pnlTopItems.Controls.Clear();
+
+            Label lblTitle = new Label { Text = "Top 3 Items Sold", Font = new Font("Segoe UI", 11F, FontStyle.Bold), Location = new Point(10, 5), AutoSize = true };
+            _dynamicTexts.Add(lblTitle);
+            pnlTopItems.Controls.Add(lblTitle);
+
+            int yPosition = 35;
+            foreach (var item in topItems)
+            {
+                // Create item container
+                BufferedPanel itemPanel = new BufferedPanel { Location = new Point(5, yPosition), Size = new Size(370, 70), BackColor = Color.Transparent };
+                itemPanel.Paint += (s, e) =>
+                {
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    using (GraphicsPath path = new GraphicsPath())
+                    {
+                        int radius = 8;
+                        Rectangle rect = new Rectangle(0, 0, itemPanel.Width - 1, itemPanel.Height - 1);
+                        path.AddArc(rect.X, rect.Y, radius, radius, 180, 90);
+                        path.AddArc(rect.Right - radius, rect.Y, radius, radius, 270, 90);
+                        path.AddArc(rect.Right - radius, rect.Bottom - radius, radius, radius, 0, 90);
+                        path.AddArc(rect.X, rect.Bottom - radius, radius, radius, 90, 90);
+                        path.CloseFigure();
+
+                        using (SolidBrush brush = new SolidBrush(UITheme.CurrentPanel))
+                        using (Pen pen = new Pen(UITheme.CurrentBorder, 1))
+                        {
+                            e.Graphics.FillPath(brush, path);
+                            e.Graphics.DrawPath(pen, path);
+                        }
+                    }
+                };
+
+                // Rank badge
+                Label lblRank = new Label { Text = $"#{item.Rank}", Font = new Font("Segoe UI", 14F, FontStyle.Bold), Location = new Point(15, 12), AutoSize = true };
+                lblRank.ForeColor = UITheme.AccentYellow;
+                _dynamicTexts.Add(lblRank);
+
+                // Item specs
+                Label lblSpecs = new Label { Text = item.ItemSpecs.Length > 40 ? item.ItemSpecs.Substring(0, 37) + "..." : item.ItemSpecs, Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(60, 12), AutoSize = true, MaximumSize = new Size(320, 30), Size = new Size(320, 30) };
+                _dynamicTexts.Add(lblSpecs);
+
+                // Units sold
+                Label lblUnits = new Label { Text = $"{item.UnitsSold} units sold", Font = new Font("Segoe UI", 8.5F), Location = new Point(60, 45), AutoSize = true };
+                lblUnits.ForeColor = UITheme.MutedText;
+                _mutedTexts.Add(lblUnits);
+
+                itemPanel.Controls.AddRange(new Control[] { lblRank, lblSpecs, lblUnits });
+                pnlTopItems.Controls.Add(itemPanel);
+
+                yPosition += 75;
+            }
+        }
+
+        private void PopulateLowStockItemsPanel(List<LowStockItemModel> lowStockItems)
+        {
+            pnlLowStockItems.Controls.Clear();
+
+            Label lblTitle = new Label { Text = "Low Stock Items", Font = new Font("Segoe UI", 11F, FontStyle.Bold), Location = new Point(10, 5), AutoSize = true };
+            _dynamicTexts.Add(lblTitle);
+            pnlLowStockItems.Controls.Add(lblTitle);
+
+            int yPosition = 35;
+            foreach (var item in lowStockItems)
+            {
+                // Create item container
+                BufferedPanel itemPanel = new BufferedPanel { Location = new Point(5, yPosition), Size = new Size(370, 70), BackColor = Color.Transparent };
+                itemPanel.Paint += (s, e) =>
+                {
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    using (GraphicsPath path = new GraphicsPath())
+                    {
+                        int radius = 8;
+                        Rectangle rect = new Rectangle(0, 0, itemPanel.Width - 1, itemPanel.Height - 1);
+                        path.AddArc(rect.X, rect.Y, radius, radius, 180, 90);
+                        path.AddArc(rect.Right - radius, rect.Y, radius, radius, 270, 90);
+                        path.AddArc(rect.Right - radius, rect.Bottom - radius, radius, radius, 0, 90);
+                        path.AddArc(rect.X, rect.Bottom - radius, radius, radius, 90, 90);
+                        path.CloseFigure();
+
+                        using (SolidBrush brush = new SolidBrush(UITheme.CurrentPanel))
+                        using (Pen pen = new Pen(UITheme.CurrentBorder, 1))
+                        {
+                            e.Graphics.FillPath(brush, path);
+                            e.Graphics.DrawPath(pen, path);
+                        }
+                    }
+                };
+
+                // Rank badge with warning color
+                Label lblRank = new Label { Text = $"#{item.Rank}", Font = new Font("Segoe UI", 14F, FontStyle.Bold), Location = new Point(15, 12), AutoSize = true };
+                lblRank.ForeColor = Color.FromArgb(239, 68, 68); // Red for warning
+                _dynamicTexts.Add(lblRank);
+
+                // Item specs
+                Label lblSpecs = new Label { Text = item.ItemSpecs.Length > 40 ? item.ItemSpecs.Substring(0, 37) + "..." : item.ItemSpecs, Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(60, 12), AutoSize = true, MaximumSize = new Size(300, 30), Size = new Size(300, 30) };
+                _dynamicTexts.Add(lblSpecs);
+
+                // Available stock
+                Label lblStock = new Label { Text = $"{item.AvailableStock} in stock", Font = new Font("Segoe UI", 8.5F), Location = new Point(60, 45), AutoSize = true };
+                lblStock.ForeColor = Color.FromArgb(239, 68, 68); // Red warning text
+                _mutedTexts.Add(lblStock);
+
+                itemPanel.Controls.AddRange(new Control[] { lblRank, lblSpecs, lblStock });
+                pnlLowStockItems.Controls.Add(itemPanel);
+
+                yPosition += 75;
+            }
+        }
+
         private void LoadDashboardData()
         {
             try
@@ -438,6 +605,18 @@ namespace SJ_PC_Store_SIMS.Views
                     ((Label)_roundedCards[6].Controls[2]).Text = stats.TotalPurchaseOrders.ToString();
                     ((Label)_roundedCards[7].Controls[2]).Text = stats.TotalSuppliers.ToString();
                     ((Label)_roundedCards[8].Controls[2]).Text = stats.TotalActiveUsers.ToString();
+
+                    // Populate Top 3 Items Sold
+                    if (stats.TopItemsSold.Count > 0)
+                    {
+                        PopulateTopItemsPanel(stats.TopItemsSold);
+                    }
+
+                    // Populate Low Stock Items
+                    if (stats.LowStockItems.Count > 0)
+                    {
+                        PopulateLowStockItemsPanel(stats.LowStockItems);
+                    }
 
                     if (_isFirstLoad)
                     {
@@ -461,6 +640,178 @@ namespace SJ_PC_Store_SIMS.Views
                         }
                     }
                 }
+
+                // ==========================================
+                // CHART STYLING BASE
+                // ==========================================
+                var charts = new[] { _salesBarChart, _inventoryDonutChart, _stockStatusPieChart, _procurementBarChart };
+                foreach (var chart in charts)
+                {
+                    chart.Plot.Clear();
+                    chart.Plot.FigureBackground.Color = ScottPlot.Color.FromColor(UITheme.CurrentWorkspace);
+                    chart.Plot.DataBackground.Color = ScottPlot.Color.FromColor(UITheme.CurrentWorkspace);
+                    chart.Plot.Axes.Color(ScottPlot.Color.FromColor(UITheme.MutedText));
+
+                    // Apply universal Title styling
+                    chart.Plot.Axes.Title.Label.FontSize = 16;
+                    chart.Plot.Axes.Title.Label.Bold = true;
+                    chart.Plot.Axes.Title.Label.ForeColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                }
+
+                ScottPlot.Color[] palette = GetStrictThemePalette();
+
+                // ==========================================
+                // 1. RENDER SALES BAR CHART 
+                // ==========================================
+                _salesBarChart.Plot.Title("Sales History"); // Added formal title
+
+                if (stats.WeeklySalesData.Count > 0)
+                {
+                    int i = 0;
+                    List<ScottPlot.Tick> ticks = new List<ScottPlot.Tick>();
+                    foreach (var kvp in stats.WeeklySalesData)
+                    {
+                        var bar = _salesBarChart.Plot.Add.Bar(position: i, value: kvp.Value);
+                        // Apply alternating PrimaryDark and SecondaryDark colors
+                        bar.Color = (i % 2 == 0) ? ScottPlot.Color.FromColor(UITheme.PrimaryDark) : ScottPlot.Color.FromColor(UITheme.SecondaryDark);
+                        bar.Label = kvp.Key;
+                        ticks.Add(new ScottPlot.Tick(i, kvp.Key));
+                        i++;
+                    }
+                    _salesBarChart.Plot.Axes.Bottom.TickGenerator = new ScottPlot.TickGenerators.NumericManual(ticks.ToArray());
+                    _salesBarChart.Plot.Axes.Margins(bottom: 0);
+                    _salesBarChart.Plot.ShowLegend();
+
+                    // Style bar chart axes and labels
+                    _salesBarChart.Plot.Axes.Bottom.TickLabelStyle.FontSize = 12;
+                    _salesBarChart.Plot.Axes.Bottom.TickLabelStyle.ForeColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                    _salesBarChart.Plot.Axes.Left.TickLabelStyle.FontSize = 12;
+                    _salesBarChart.Plot.Axes.Left.TickLabelStyle.ForeColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                }
+                _salesBarChart.Refresh();
+
+                // ==========================================
+                // 2. RENDER INVENTORY PIE (Categories w/ Percentages)
+                // ==========================================
+                _inventoryDonutChart.Plot.Title("Category Distribution"); // Added formal title
+                _inventoryDonutChart.Plot.HideGrid(); // Explicitly removes the grid
+
+                if (stats.InventoryCategoryData.Count > 0)
+                {
+                    double totalItems = stats.InventoryCategoryData.Values.Sum();
+                    List<PieSlice> catSlices = new List<PieSlice>();
+                    int colorIndex = 0;
+
+                    foreach (var kvp in stats.InventoryCategoryData)
+                    {
+                        double percentage = (kvp.Value / totalItems) * 100;
+                        ScottPlot.Color sliceColor = palette[colorIndex % palette.Length];
+                        // Use black text for AccentYellow, white for others
+                        ScottPlot.Color labelColor = sliceColor.Equals(ScottPlot.Color.FromColor(UITheme.AccentYellow))
+                            ? ScottPlot.Color.FromColor(System.Drawing.Color.Black)
+                            : ScottPlot.Color.FromColor(System.Drawing.Color.Black);
+
+                        catSlices.Add(new PieSlice()
+                        {
+                            Value = kvp.Value,
+                            Label = $"{percentage:0.#}%",
+                            FillColor = sliceColor,
+                            LegendText = kvp.Key,
+                            LabelFontSize = 16,
+                            LabelFontColor = labelColor
+                        });
+                        colorIndex++;
+                    }
+                    var catPie = _inventoryDonutChart.Plot.Add.Pie(catSlices);
+                    catPie.DonutFraction = 0.5;
+                    catPie.SliceLabelDistance = 0.35;
+
+                    // Style the pie chart appearance
+                    var legend = _inventoryDonutChart.Plot.Legend;
+                    legend.FontSize = 12;
+                    legend.FontColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                    legend.BackgroundColor = ScottPlot.Color.FromColor(UITheme.CurrentPanel);
+                    legend.OutlineColor = ScottPlot.Color.FromColor(UITheme.CurrentBorder);
+
+                    _inventoryDonutChart.Plot.Axes.Frameless();
+                    _inventoryDonutChart.Plot.ShowLegend();
+                }
+                _inventoryDonutChart.Refresh();
+
+                // ==========================================
+                // 3. RENDER STOCK STATUS PIE 
+                // ==========================================
+                _stockStatusPieChart.Plot.Title("Stock Status Overview"); // Added formal title
+                _stockStatusPieChart.Plot.HideGrid(); // Explicitly removes the grid
+
+                if (stats.StockStatusData.Count > 0)
+                {
+                    List<PieSlice> statusSlices = new List<PieSlice>();
+                    int colorIndex = 0;
+
+                    foreach (var kvp in stats.StockStatusData)
+                    {
+                        ScottPlot.Color sliceColor = palette[colorIndex % palette.Length];
+                        // Use black text for AccentYellow, white for others
+                        ScottPlot.Color labelColor = sliceColor.Equals(ScottPlot.Color.FromColor(UITheme.AccentYellow))
+                            ? ScottPlot.Color.FromColor(System.Drawing.Color.Black)
+                            : ScottPlot.Color.FromColor(System.Drawing.Color.White);
+
+                        statusSlices.Add(new PieSlice()
+                        {
+                            Value = kvp.Value,
+                            Label = kvp.Value.ToString(),
+                            FillColor = sliceColor,
+                            LegendText = kvp.Key,
+                            LabelFontSize = 16,
+                            LabelFontColor = labelColor
+                        });
+                        colorIndex++;
+                    }
+                    var statusPie = _stockStatusPieChart.Plot.Add.Pie(statusSlices);
+                    statusPie.SliceLabelDistance = 0.35;
+
+                    // Style the pie chart appearance
+                    var statusLegend = _stockStatusPieChart.Plot.Legend;
+                    statusLegend.FontSize = 12;
+                    statusLegend.FontColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                    statusLegend.BackgroundColor = ScottPlot.Color.FromColor(UITheme.CurrentPanel);
+                    statusLegend.OutlineColor = ScottPlot.Color.FromColor(UITheme.CurrentBorder);
+
+                    _stockStatusPieChart.Plot.Axes.Frameless();
+                    _stockStatusPieChart.Plot.ShowLegend();
+                }
+                _stockStatusPieChart.Refresh();
+
+                // ==========================================
+                // 4. RENDER PROCUREMENT EXPENSE BAR 
+                // ==========================================
+                _procurementBarChart.Plot.Title("Procurement Expenses"); // Added formal title
+
+                if (stats.ProcurementExpenseData.Count > 0)
+                {
+                    int i = 0;
+                    List<ScottPlot.Tick> procTicks = new List<ScottPlot.Tick>();
+                    foreach (var kvp in stats.ProcurementExpenseData)
+                    {
+                        var bar = _procurementBarChart.Plot.Add.Bar(position: i, value: kvp.Value);
+                        // Apply alternating PrimaryDark and SecondaryDark colors
+                        bar.Color = (i % 2 == 0) ? ScottPlot.Color.FromColor(UITheme.PrimaryDark) : ScottPlot.Color.FromColor(UITheme.SecondaryDark);
+                        bar.Label = kvp.Key;
+                        procTicks.Add(new ScottPlot.Tick(i, kvp.Key));
+                        i++;
+                    }
+                    _procurementBarChart.Plot.Axes.Bottom.TickGenerator = new ScottPlot.TickGenerators.NumericManual(procTicks.ToArray());
+                    _procurementBarChart.Plot.Axes.Margins(bottom: 0);
+                    _procurementBarChart.Plot.ShowLegend();
+
+                    // Style bar chart axes and labels
+                    _procurementBarChart.Plot.Axes.Bottom.TickLabelStyle.FontSize = 12;
+                    _procurementBarChart.Plot.Axes.Bottom.TickLabelStyle.ForeColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                    _procurementBarChart.Plot.Axes.Left.TickLabelStyle.FontSize = 12;
+                    _procurementBarChart.Plot.Axes.Left.TickLabelStyle.ForeColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+                }
+                _procurementBarChart.Refresh();
             }
             catch (Exception)
             {
@@ -519,7 +870,7 @@ namespace SJ_PC_Store_SIMS.Views
                 Text = "   " + text,
                 IconChar = icon,
                 IconSize = 30,
-                Size = new Size(260, 55),
+                Size = new Size(255, 55),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.Transparent,
                 ForeColor = Color.FromArgb(209, 213, 219),
@@ -548,9 +899,10 @@ namespace SJ_PC_Store_SIMS.Views
             return btn;
         }
 
-        private Panel CreateModuleSection(string title, out Panel grid)
+        private Panel CreateModuleSection(string title, int customHeight, out Panel grid)
         {
-            BufferedPanel pnl = new BufferedPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(0, 0, 0, 20) };
+            // Height is now dynamic based on how many cards are stacked vertically
+            BufferedPanel pnl = new BufferedPanel { Dock = DockStyle.Top, Height = customHeight, Padding = new Padding(0, 0, 0, 20) };
             Label lblTitle = new Label { Text = title, Font = new Font("Segoe UI", 10F, FontStyle.Bold), AutoSize = true, Location = new Point(0, 0) };
 
             pnl.Paint += (s, e) =>
@@ -561,7 +913,7 @@ namespace SJ_PC_Store_SIMS.Views
             BufferedPanel innerGrid = new BufferedPanel
             {
                 Location = new Point(0, 40),
-                Size = new Size(pnl.Width, 140),
+                Size = new Size(pnl.Width, customHeight - 50),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             grid = innerGrid;
@@ -666,6 +1018,30 @@ namespace SJ_PC_Store_SIMS.Views
             pnlNotifDropdown.Invalidate();
 
             foreach (Control item in flpNotifications.Controls) item.Invalidate();
+
+            // Refresh charts with new theme colors
+            RefreshChartThemes();
+        }
+
+        private void RefreshChartThemes()
+        {
+            var charts = new[] { _salesBarChart, _inventoryDonutChart, _stockStatusPieChart, _procurementBarChart };
+            foreach (var chart in charts)
+            {
+                if (chart != null)
+                {
+                    chart.Plot.FigureBackground.Color = ScottPlot.Color.FromColor(UITheme.CurrentWorkspace);
+                    chart.Plot.DataBackground.Color = ScottPlot.Color.FromColor(UITheme.CurrentWorkspace);
+                    chart.Plot.Axes.Color(ScottPlot.Color.FromColor(UITheme.MutedText));
+
+                    // Apply title styling with theme colors
+                    chart.Plot.Axes.Title.Label.FontSize = 16;
+                    chart.Plot.Axes.Title.Label.Bold = true;
+                    chart.Plot.Axes.Title.Label.ForeColor = ScottPlot.Color.FromColor(UITheme.CurrentText);
+
+                    chart.Refresh();
+                }
+            }
         }
     }
 }

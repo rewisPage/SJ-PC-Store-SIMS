@@ -205,17 +205,19 @@ namespace SJ_PC_Store_SIMS.Controllers
         {
             DataTable dt = new DataTable();
 
-            // CHANGED: Added a LEFT JOIN to the PROCUREMENT table. 
-            // This traces the PO_Number to guarantee we fetch the correct SupplierID!
+            // Pulling Category and Specs separately 
             string query = @"
-                        SELECT 
-                            s.SerialNumber, 
-                            s.ItemCode, 
-                            ISNULL(s.PO_Number, 'N/A') AS PO_Number, 
-                            ISNULL(p.SupplierID, 'N/A') AS SupplierID, 
-                            s.Status 
-                        FROM STOCK_INSTANCE s
-                        LEFT JOIN PROCUREMENT p ON s.PO_Number = p.PO_Number";
+                SELECT 
+                    s.SerialNumber, 
+                    s.ItemCode,
+                    ISNULL(i.Category, 'Uncategorized') AS Category,
+                    ISNULL(i.Specs, s.ItemCode) AS ItemName, 
+                    ISNULL(s.PO_Number, 'N/A') AS PO_Number, 
+                    ISNULL(p.SupplierID, 'N/A') AS SupplierID, 
+                    s.Status 
+                    FROM STOCK_INSTANCE s
+                    LEFT JOIN PROCUREMENT p ON s.PO_Number = p.PO_Number
+                    LEFT JOIN ITEM_MASTER i ON s.ItemCode = i.ItemCode";
 
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {

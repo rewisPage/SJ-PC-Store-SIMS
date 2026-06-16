@@ -190,31 +190,126 @@ namespace SJ_PC_Store_SIMS.Views
             Form parent = this.FindForm();
             if (parent == null) return;
 
-            Label lbl = new Label { Text = msg, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), AutoSize = true };
-            int toastWidth = Math.Max(320, lbl.PreferredWidth + 80);
+            // Calculate dynamic size based on text length
+            Font msgFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+            int textWidth = TextRenderer.MeasureText(msg, msgFont).Width;
+            int toastWidth = Math.Max(350, textWidth + 100);
 
-            Form toast = new Form { StartPosition = FormStartPosition.Manual, FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, Size = new Size(toastWidth, 60), TopMost = true, ShowInTaskbar = false };
-            toast.Location = new Point(parent.Right - toastWidth - 20, parent.Bottom - 80);
+            // Modern color palette
+            Color accentColor = success ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68);
+            Color bgColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.White;
 
+            Form toast = new Form
+            {
+                StartPosition = FormStartPosition.Manual,
+                FormBorderStyle = FormBorderStyle.None,
+                BackColor = bgColor,
+                Size = new Size(toastWidth, 60),
+                TopMost = true,
+                ShowInTaskbar = false,
+                Opacity = 0 // Starts invisible for the fade-in animation
+            };
+
+            // Relocate to the TOP-RIGHT of the workspace
+            int xLoc = parent.Right - toastWidth - 30;
+            int yLoc = parent.Top + 50;
+            toast.Location = new Point(xLoc, yLoc);
+
+            // Custom Paint for a sleek, modern UI (Left accent bar + subtle outer border)
             toast.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (GraphicsPath path = new GraphicsPath())
+
+                // Subtle outer border
+                using (Pen borderPen = new Pen(UITheme.CurrentBorder, 1))
                 {
-                    int r = 8; path.AddArc(0, 0, r, r, 180, 90); path.AddArc(toast.Width - r - 1, 0, r, r, 270, 90); path.AddArc(toast.Width - r - 1, toast.Height - r - 1, r, r, 0, 90); path.AddArc(0, toast.Height - r - 1, r, r, 90, 90); path.CloseFigure(); toast.Region = new Region(path);
-                    using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawPath(p, path); }
+                    e.Graphics.DrawRectangle(borderPen, 0, 0, toast.Width - 1, toast.Height - 1);
+                }
+
+                // Heavy left accent line for quick status recognition
+                using (SolidBrush accentBrush = new SolidBrush(accentColor))
+                {
+                    e.Graphics.FillRectangle(accentBrush, 0, 0, 6, toast.Height);
                 }
             };
 
-            IconPictureBox icon = new IconPictureBox { IconChar = success ? IconChar.CheckCircle : IconChar.TimesCircle, IconColor = success ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68), IconSize = 24, Size = new Size(24, 24), Location = new Point(15, 18) };
-            lbl.Location = new Point(45, 20);
+            // Status Icon
+            IconPictureBox icon = new IconPictureBox
+            {
+                IconChar = success ? IconChar.CheckCircle : IconChar.ExclamationCircle,
+                IconColor = accentColor,
+                IconSize = 28,
+                Size = new Size(28, 28),
+                Location = new Point(20, 16),
+                BackColor = Color.Transparent
+            };
 
-            toast.Controls.AddRange(new Control[] { icon, lbl });
+            // Message Label
+            Label lbl = new Label
+            {
+                Text = msg,
+                ForeColor = UITheme.CurrentText,
+                Font = msgFont,
+                AutoSize = true,
+                Location = new Point(55, 19),
+                BackColor = Color.Transparent
+            };
 
-            System.Windows.Forms.Timer t = new System.Windows.Forms.Timer { Interval = 3000 };
-            t.Tick += (s, e) => { toast.Close(); t.Stop(); };
+            // Interactive Close Button
+            IconPictureBox closeIcon = new IconPictureBox
+            {
+                IconChar = IconChar.Times,
+                IconColor = UITheme.MutedText,
+                IconSize = 16,
+                Size = new Size(16, 16),
+                Location = new Point(toast.Width - 30, 22),
+                Cursor = Cursors.Hand,
+                BackColor = Color.Transparent
+            };
+
+            // Smooth hover effects and click-to-close for the X button
+            closeIcon.MouseEnter += (s, e) => closeIcon.IconColor = Color.FromArgb(239, 68, 68);
+            closeIcon.MouseLeave += (s, e) => closeIcon.IconColor = UITheme.MutedText;
+
+            toast.Controls.AddRange(new Control[] { icon, lbl, closeIcon });
+
+            // Animation & Lifecycle Timers
+            System.Windows.Forms.Timer fadeTimer = new System.Windows.Forms.Timer { Interval = 15 };
+            System.Windows.Forms.Timer holdTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+            bool isFadingIn = true;
+
+            // Manual close logic
+            closeIcon.Click += (s, e) =>
+            {
+                holdTimer.Stop();
+                isFadingIn = false;
+                fadeTimer.Start();
+            };
+
+            // Opacity interpolator
+            fadeTimer.Tick += (s, e) =>
+            {
+                if (isFadingIn)
+                {
+                    if (toast.Opacity < 1) toast.Opacity += 0.1;
+                    else { fadeTimer.Stop(); holdTimer.Start(); }
+                }
+                else
+                {
+                    if (toast.Opacity > 0) toast.Opacity -= 0.1;
+                    else { fadeTimer.Stop(); toast.Close(); }
+                }
+            };
+
+            holdTimer.Tick += (s, e) =>
+            {
+                holdTimer.Stop();
+                isFadingIn = false;
+                fadeTimer.Start(); // Trigger fade out
+            };
+
             toast.Show();
-            t.Start();
+            fadeTimer.Start(); // Trigger fade in
         }
 
         // =========================================================================
@@ -387,7 +482,8 @@ namespace SJ_PC_Store_SIMS.Views
 
                 dgvStock.Rows.Add(
                     row["SerialNumber"].ToString(),
-                    row["ItemCode"].ToString(),
+                    row["Category"].ToString(), // Inserted Category
+                    row["ItemName"].ToString(),
                     row["PO_Number"].ToString(),
                     suppId,
                     row["Status"].ToString(),
@@ -445,8 +541,19 @@ namespace SJ_PC_Store_SIMS.Views
             {
                 if (row.IsNewRow) continue;
                 bool match = true;
-                if (!string.IsNullOrEmpty(search) && !row.Cells["ColSerial"].Value.ToString().ToLower().Contains(search)) match = false;
-                if (stat != "Status: All" && row.Cells["ColStatus"].Value.ToString() != stat) match = false;
+
+                // Fetch values for search comparison
+                string serial = row.Cells["ColSerial"].Value.ToString().ToLower();
+                string cat = row.Cells["ColCat"].Value.ToString().ToLower();
+                string itemName = row.Cells["ColName"].Value.ToString().ToLower();
+
+                // Search against Serial, Category, AND Item Name
+                if (!string.IsNullOrEmpty(search) && !serial.Contains(search) && !itemName.Contains(search) && !cat.Contains(search))
+                    match = false;
+
+                if (stat != "Status: All" && row.Cells["ColStatus"].Value.ToString() != stat)
+                    match = false;
+
                 row.Visible = match;
             }
 
@@ -639,7 +746,8 @@ namespace SJ_PC_Store_SIMS.Views
         private void SetupStockColumns()
         {
             dgvStock.Columns.Add("ColSerial", "SERIAL NUMBER");
-            dgvStock.Columns.Add("ColRef", "ITEM CODE (REF)");
+            dgvStock.Columns.Add("ColCat", "CATEGORY");
+            dgvStock.Columns.Add("ColName", "ITEM NAME");
             dgvStock.Columns.Add("ColOrigin", "PO NUMBER (ORIGIN)");
             dgvStock.Columns.Add("ColSupp", "SUPPLIER ID");
             dgvStock.Columns.Add("ColStatus", "STATUS");

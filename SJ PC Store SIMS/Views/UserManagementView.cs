@@ -482,6 +482,7 @@ namespace SJ_PC_Store_SIMS.Views
                     string newStatus = isActive ? "Inactive" : "Active";
                     if (_userController.ToggleUserStatus(targetUserId, newStatus, _activeUserId))
                     {
+                        ShowToast($"User status updated to {newStatus}.", true);
                         FetchUsersData();
                         modal.Close();
                     }
@@ -564,7 +565,7 @@ namespace SJ_PC_Store_SIMS.Views
 
                 btnAction.Click += (s, e) =>
                 {
-                    if (string.IsNullOrWhiteSpace(txtRoleName.Text)) { MessageBox.Show("Please enter a role name.", "Requirement Missing", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                    if (string.IsNullOrWhiteSpace(txtRoleName.Text)) { ShowAlertModal("Requirement Missing", "Please enter a role name.", "Warning"); return; }
 
                     RolePermissions perms = new RolePermissions
                     {
@@ -580,26 +581,23 @@ namespace SJ_PC_Store_SIMS.Views
                     {
                         if (_userController.UpdateRole(txtRoleName.Text.Trim(), perms, _activeUserId))
                         {
-                            MessageBox.Show($"Role '{txtRoleName.Text.Trim()}' updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            ShowAlertModal("Success", $"Role '{txtRoleName.Text.Trim()}' updated successfully!", "Success");
                             modal.Close();
                         }
-                        else { MessageBox.Show("Role update failed.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                        else { ShowAlertModal("Error", "Role update failed.", "Error"); }
                     }
                     else
                     {
-                        if (_userController.CreateRole(txtRoleName.Text.Trim(), perms, _activeUserId))
+                        string result = _userController.CreateRole(txtRoleName.Text.Trim(), perms, _activeUserId);
+                        if (result == "SUCCESS")
                         {
-                            MessageBox.Show($"Role '{txtRoleName.Text.Trim()}' created successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                            // Refresh Comboboxes
+                            ShowAlertModal("Success", $"Role '{txtRoleName.Text.Trim()}' created successfully!", "Success");
                             string currentSelection = cmbRoles.SelectedItem?.ToString();
-                            cmbRoles.Items.Clear(); cmbRoles.Items.Add("All Roles");
-                            cmbRoles.Items.AddRange(_userController.GetAllRoles().ToArray());
+                            cmbRoles.Items.Clear(); cmbRoles.Items.Add("All Roles"); cmbRoles.Items.AddRange(_userController.GetAllRoles().ToArray());
                             cmbRoles.SelectedItem = currentSelection ?? "All Roles";
-
                             modal.Close();
                         }
-                        else { MessageBox.Show("Role creation failed. The role name might already exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                        else { ShowAlertModal("Creation Failed", result, "Error"); }
                     }
                 };
 
@@ -700,20 +698,20 @@ namespace SJ_PC_Store_SIMS.Views
                     // HOOKED UP: Reset Passkey Logic
                     btnResetPasskey.Click += (s, e) =>
                     {
-                        if (MessageBox.Show($"Are you sure you want to reset the passkey for {uData.Username}?\nThe old passkey will be permanently invalidated.", "Confirm Reset", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                        ShowConfirmModal("Confirm Reset", $"Are you sure you want to reset the passkey for {uData.Username}?\nThe old passkey will be permanently invalidated.", () =>
                         {
                             string newPasskey = _userController.ResetUserPasskey(uData.UserID, _activeUserId);
                             if (!string.IsNullOrEmpty(newPasskey))
                             {
-                                modal.Close(); // Close the edit modal
-                                ShowPasskeyModal(uData.Username, newPasskey, "Passkey Reset Successfully!"); // Show the success modal
-                                FetchUsersData(); // Refresh the grid data
+                                modal.Close();
+                                ShowPasskeyModal(uData.Username, newPasskey, "Passkey Reset Successfully!");
+                                FetchUsersData();
                             }
                             else
                             {
-                                MessageBox.Show("Failed to reset the passkey.", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                ShowAlertModal("Database Error", "Failed to reset the passkey.", "Error");
                             }
-                        }
+                        });
                     };
 
                     modal.Controls.AddRange(new Control[] { lblReset, btnResetPasskey });
@@ -745,47 +743,45 @@ namespace SJ_PC_Store_SIMS.Views
                     {
                         if (string.IsNullOrWhiteSpace(txtFirstName.Text) || string.IsNullOrWhiteSpace(txtLastName.Text) || string.IsNullOrWhiteSpace(txtUsername.Text))
                         {
-                            MessageBox.Show("Please fill out all required fields.", "Requirement Missing", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            ShowAlertModal("Requirement Missing", "Please fill out all required fields.", "Warning");
                             return;
                         }
 
                         if (type == "CreateUser")
                         {
-                            if (string.IsNullOrWhiteSpace(txtPassword.Text)) { MessageBox.Show("Please provide an initial password.", "Requirement Missing"); return; }
+                            if (string.IsNullOrWhiteSpace(txtPassword.Text)) { ShowAlertModal("Requirement Missing", "Please provide an initial password.", "Warning"); return; }
 
                             UserModel newUser = new UserModel
                             {
                                 UserID = _userController.GenerateNextUserID(),
                                 FirstName = txtFirstName.Text.Trim(),
                                 LastName = txtLastName.Text.Trim(),
-                                ContactNumber = txtContactNumber.Text.Trim(), // Saved from field
+                                ContactNumber = txtContactNumber.Text.Trim(),
                                 Username = txtUsername.Text.Trim(),
                                 Role = cmbUserRole.SelectedItem.ToString()
                             };
 
-                            if (_userController.CreateUser(newUser, txtPassword.Text, _activeUserId))
+                            string result = _userController.CreateUser(newUser, txtPassword.Text, _activeUserId);
+                            if (result == "SUCCESS")
                             {
-                                // Remove old messagebox and trigger the dedicated passkey modal
                                 modal.Close();
                                 ShowPasskeyModal(newUser.Username, newUser.Passkey, "User Created Successfully!");
                                 FetchUsersData();
                             }
-                            else { MessageBox.Show("Failed to create user. The Username might already exist.", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                            else { ShowAlertModal("Creation Failed", result, "Error"); }
                         }
                         else if (type == "EditUser")
                         {
-                            uData.FirstName = txtFirstName.Text.Trim();
-                            uData.LastName = txtLastName.Text.Trim();
-                            uData.ContactNumber = txtContactNumber.Text.Trim(); // Saved from field
-                            uData.Role = cmbUserRole.SelectedItem.ToString();
+                            uData.FirstName = txtFirstName.Text.Trim(); uData.LastName = txtLastName.Text.Trim();
+                            uData.ContactNumber = txtContactNumber.Text.Trim(); uData.Role = cmbUserRole.SelectedItem.ToString();
 
                             if (_userController.UpdateUser(uData, _activeUserId))
                             {
-                                MessageBox.Show("User details updated successfully.", "Update Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                ShowAlertModal("Update Complete", "User details updated successfully.", "Success");
                                 FetchUsersData();
                                 modal.Close();
                             }
-                            else { MessageBox.Show("Failed to update user details.", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                            else { ShowAlertModal("Database Error", "Failed to update user details.", "Error"); }
                         }
                     };
                     pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
@@ -805,7 +801,7 @@ namespace SJ_PC_Store_SIMS.Views
         {
             if (_logsData == null || _logsData.Count == 0)
             {
-                MessageBox.Show("There are no activity logs to export.", "Empty Report", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowAlertModal("Empty Report", "There are no activity logs to export.", "Warning");
                 return;
             }
 
@@ -1150,6 +1146,229 @@ namespace SJ_PC_Store_SIMS.Views
             Form parent = this.FindForm();
             Form overlay = new Form { StartPosition = FormStartPosition.Manual, Location = parent.PointToScreen(Point.Empty), Size = parent.ClientSize, BackColor = Color.Black, Opacity = 0.6, FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false };
             overlay.Show(); modal.ShowDialog(overlay); overlay.Dispose();
+        }
+
+        // =========================================================================
+        // CUSTOM ALERT MODALS (Replaces MessageBox)
+        // =========================================================================
+        private void ShowAlertModal(string title, string message, string type = "Error")
+        {
+            ModalForm modal = new ModalForm { FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, StartPosition = FormStartPosition.CenterScreen, ShowInTaskbar = false, Size = new Size(400, 250) };
+            modal.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = new GraphicsPath())
+                {
+                    int r = 12; path.AddArc(0, 0, r, r, 180, 90); path.AddArc(modal.Width - r - 1, 0, r, r, 270, 90); path.AddArc(modal.Width - r - 1, modal.Height - r - 1, r, r, 0, 90); path.AddArc(0, modal.Height - r - 1, r, r, 90, 90); path.CloseFigure(); modal.Region = new Region(path);
+                    using (Pen p = new Pen(UITheme.CurrentBorder, 3)) { e.Graphics.DrawPath(p, path); }
+                }
+            };
+
+            IconButton btnClose = new IconButton { IconChar = IconChar.Times, IconSize = 20, Size = new Size(40, 40), FlatStyle = FlatStyle.Flat, ForeColor = UITheme.MutedText, BackColor = Color.Transparent, Cursor = Cursors.Hand, Location = new Point(350, 10) };
+            btnClose.FlatAppearance.BorderSize = 0; btnClose.FlatAppearance.MouseDownBackColor = Color.Transparent; btnClose.FlatAppearance.MouseOverBackColor = Color.Transparent;
+            btnClose.MouseEnter += (s, e) => btnClose.IconColor = Color.FromArgb(239, 68, 68);
+            btnClose.MouseLeave += (s, e) => btnClose.IconColor = UITheme.MutedText;
+            btnClose.Click += (s, e) => modal.Close();
+
+            IconChar warnIcon = type == "Success" ? IconChar.CheckCircle : (type == "Warning" ? IconChar.ExclamationTriangle : IconChar.TimesCircle);
+            Color warnColor = type == "Success" ? Color.FromArgb(16, 185, 129) : (type == "Warning" ? Color.FromArgb(245, 158, 11) : Color.FromArgb(239, 68, 68));
+
+            IconPictureBox iconWarning = new IconPictureBox { IconChar = warnIcon, IconColor = warnColor, IconSize = 60, Size = new Size(60, 60), Location = new Point((modal.Width - 60) / 2, 30) };
+            Label lblWarn = new Label { Text = title, Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+            lblWarn.Location = new Point((modal.Width - lblWarn.PreferredWidth) / 2, 100);
+            Label lblDesc = new Label { Text = message, Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
+            lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 135);
+
+            Panel pnlFooter = new Panel { Dock = DockStyle.Bottom, Height = 70, BackColor = UITheme.CurrentPanel };
+            Button btnOkay = new Button { Text = "Okay", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+            btnOkay.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnOkay.FlatAppearance.MouseDownBackColor = UITheme.CurrentPanel;
+            btnOkay.MouseEnter += (s, e) => btnOkay.BackColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.FromArgb(230, 230, 230);
+            btnOkay.MouseLeave += (s, e) => btnOkay.BackColor = Color.Transparent;
+            btnOkay.Click += (s, e) => modal.Close();
+            btnOkay.Location = new Point((modal.Width - btnOkay.Width) / 2, 15);
+            pnlFooter.Controls.Add(btnOkay);
+
+            modal.Controls.AddRange(new Control[] { btnClose, iconWarning, lblWarn, lblDesc, pnlFooter });
+
+            Form parent = this.FindForm();
+            if (parent != null) { Form overlay = new Form { StartPosition = FormStartPosition.Manual, Location = parent.PointToScreen(Point.Empty), Size = parent.ClientSize, BackColor = Color.Black, Opacity = 0.6, FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false }; overlay.Show(); modal.ShowDialog(overlay); overlay.Dispose(); }
+            else modal.ShowDialog();
+        }
+
+        private void ShowConfirmModal(string title, string message, Action onConfirm)
+        {
+            ModalForm modal = new ModalForm { FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, StartPosition = FormStartPosition.CenterScreen, ShowInTaskbar = false, Size = new Size(400, 250) };
+            modal.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = new GraphicsPath())
+                {
+                    int r = 12; path.AddArc(0, 0, r, r, 180, 90); path.AddArc(modal.Width - r - 1, 0, r, r, 270, 90); path.AddArc(modal.Width - r - 1, modal.Height - r - 1, r, r, 0, 90); path.AddArc(0, modal.Height - r - 1, r, r, 90, 90); path.CloseFigure(); modal.Region = new Region(path);
+                    using (Pen p = new Pen(UITheme.CurrentBorder, 3)) { e.Graphics.DrawPath(p, path); }
+                }
+            };
+
+            IconButton btnClose = new IconButton { IconChar = IconChar.Times, IconSize = 20, Size = new Size(40, 40), FlatStyle = FlatStyle.Flat, ForeColor = UITheme.MutedText, BackColor = Color.Transparent, Cursor = Cursors.Hand, Location = new Point(350, 10) };
+            btnClose.FlatAppearance.BorderSize = 0; btnClose.FlatAppearance.MouseDownBackColor = Color.Transparent; btnClose.FlatAppearance.MouseOverBackColor = Color.Transparent;
+            btnClose.MouseEnter += (s, e) => btnClose.IconColor = Color.FromArgb(239, 68, 68);
+            btnClose.MouseLeave += (s, e) => btnClose.IconColor = UITheme.MutedText;
+            btnClose.Click += (s, e) => modal.Close();
+
+            IconPictureBox iconWarning = new IconPictureBox { IconChar = IconChar.ExclamationTriangle, IconColor = Color.FromArgb(245, 158, 11), IconSize = 60, Size = new Size(60, 60), Location = new Point((modal.Width - 60) / 2, 30) };
+            Label lblWarn = new Label { Text = title, Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true };
+            lblWarn.Location = new Point((modal.Width - lblWarn.PreferredWidth) / 2, 100);
+            Label lblDesc = new Label { Text = message, Font = new Font("Segoe UI", 10F), ForeColor = UITheme.MutedText, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter };
+            lblDesc.Location = new Point((modal.Width - lblDesc.PreferredWidth) / 2, 135);
+
+            Panel pnlFooter = new Panel { Dock = DockStyle.Bottom, Height = 70, BackColor = UITheme.CurrentPanel };
+            Button btnCancel = new Button { Text = "Cancel", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+            btnCancel.FlatAppearance.BorderColor = UITheme.CurrentBorder; btnCancel.FlatAppearance.MouseDownBackColor = UITheme.CurrentPanel;
+            btnCancel.MouseEnter += (s, e) => btnCancel.BackColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.FromArgb(230, 230, 230);
+            btnCancel.MouseLeave += (s, e) => btnCancel.BackColor = Color.Transparent;
+            btnCancel.Click += (s, e) => modal.Close();
+
+            Button btnAction = new Button { Text = "Confirm", Size = new Size(100, 38), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(239, 68, 68), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
+            btnAction.FlatAppearance.BorderSize = 0;
+
+            // Execute the passed logic on confirmation
+            btnAction.Click += (s, e) => { modal.Close(); onConfirm(); };
+
+            int startX = (modal.Width - (btnCancel.Width + 10 + btnAction.Width)) / 2;
+            btnCancel.Location = new Point(startX, 15); btnAction.Location = new Point(startX + btnCancel.Width + 10, 15);
+            pnlFooter.Controls.AddRange(new Control[] { btnCancel, btnAction });
+
+            modal.Controls.AddRange(new Control[] { btnClose, iconWarning, lblWarn, lblDesc, pnlFooter });
+
+            Form parent = this.FindForm();
+            if (parent != null) { Form overlay = new Form { StartPosition = FormStartPosition.Manual, Location = parent.PointToScreen(Point.Empty), Size = parent.ClientSize, BackColor = Color.Black, Opacity = 0.6, FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false }; overlay.Show(); modal.ShowDialog(overlay); overlay.Dispose(); }
+            else modal.ShowDialog();
+        }
+
+        private void ShowToast(string msg, bool success)
+        {
+            Form parent = this.FindForm();
+            if (parent == null) return;
+
+            // Calculate dynamic size based on text length
+            Font msgFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+            int textWidth = TextRenderer.MeasureText(msg, msgFont).Width;
+            int toastWidth = Math.Max(350, textWidth + 100);
+
+            // Modern color palette
+            Color accentColor = success ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68);
+            Color bgColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.White;
+
+            Form toast = new Form
+            {
+                StartPosition = FormStartPosition.Manual,
+                FormBorderStyle = FormBorderStyle.None,
+                BackColor = bgColor,
+                Size = new Size(toastWidth, 60),
+                TopMost = true,
+                ShowInTaskbar = false,
+                Opacity = 0 // Starts invisible for the fade-in animation
+            };
+
+            // Relocate to the TOP-RIGHT of the workspace
+            int xLoc = parent.Right - toastWidth - 30;
+            int yLoc = parent.Top + 50;
+            toast.Location = new Point(xLoc, yLoc);
+
+            // Custom Paint for a sleek, modern UI (Left accent bar + subtle outer border)
+            toast.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                // Subtle outer border
+                using (Pen borderPen = new Pen(UITheme.CurrentBorder, 1))
+                {
+                    e.Graphics.DrawRectangle(borderPen, 0, 0, toast.Width - 1, toast.Height - 1);
+                }
+
+                // Heavy left accent line for quick status recognition
+                using (SolidBrush accentBrush = new SolidBrush(accentColor))
+                {
+                    e.Graphics.FillRectangle(accentBrush, 0, 0, 6, toast.Height);
+                }
+            };
+
+            // Status Icon
+            IconPictureBox icon = new IconPictureBox
+            {
+                IconChar = success ? IconChar.CheckCircle : IconChar.ExclamationCircle,
+                IconColor = accentColor,
+                IconSize = 28,
+                Size = new Size(28, 28),
+                Location = new Point(20, 16),
+                BackColor = Color.Transparent
+            };
+
+            // Message Label
+            Label lbl = new Label
+            {
+                Text = msg,
+                ForeColor = UITheme.CurrentText,
+                Font = msgFont,
+                AutoSize = true,
+                Location = new Point(55, 19),
+                BackColor = Color.Transparent
+            };
+
+            // Interactive Close Button
+            IconPictureBox closeIcon = new IconPictureBox
+            {
+                IconChar = IconChar.Times,
+                IconColor = UITheme.MutedText,
+                IconSize = 16,
+                Size = new Size(16, 16),
+                Location = new Point(toast.Width - 30, 22),
+                Cursor = Cursors.Hand,
+                BackColor = Color.Transparent
+            };
+
+            // Smooth hover effects and click-to-close for the X button
+            closeIcon.MouseEnter += (s, e) => closeIcon.IconColor = Color.FromArgb(239, 68, 68);
+            closeIcon.MouseLeave += (s, e) => closeIcon.IconColor = UITheme.MutedText;
+
+            toast.Controls.AddRange(new Control[] { icon, lbl, closeIcon });
+
+            // Animation & Lifecycle Timers
+            System.Windows.Forms.Timer fadeTimer = new System.Windows.Forms.Timer { Interval = 15 };
+            System.Windows.Forms.Timer holdTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+            bool isFadingIn = true;
+
+            // Manual close logic
+            closeIcon.Click += (s, e) =>
+            {
+                holdTimer.Stop();
+                isFadingIn = false;
+                fadeTimer.Start();
+            };
+
+            // Opacity interpolator
+            fadeTimer.Tick += (s, e) =>
+            {
+                if (isFadingIn)
+                {
+                    if (toast.Opacity < 1) toast.Opacity += 0.1;
+                    else { fadeTimer.Stop(); holdTimer.Start(); }
+                }
+                else
+                {
+                    if (toast.Opacity > 0) toast.Opacity -= 0.1;
+                    else { fadeTimer.Stop(); toast.Close(); }
+                }
+            };
+
+            holdTimer.Tick += (s, e) =>
+            {
+                holdTimer.Stop();
+                isFadingIn = false;
+                fadeTimer.Start(); // Trigger fade out
+            };
+
+            toast.Show();
+            fadeTimer.Start(); // Trigger fade in
         }
     }
 }

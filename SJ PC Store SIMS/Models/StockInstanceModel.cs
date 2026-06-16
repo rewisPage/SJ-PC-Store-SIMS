@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SJ_PC_Store_SIMS.Models
+﻿namespace SJ_PC_Store_SIMS.Models
 {
     public class StockInstanceModel
     {
@@ -10,5 +8,7 @@ namespace SJ_PC_Store_SIMS.Models
         public string SupplierID { get; set; }
         public string Status { get; set; }
         public string DefectReason { get; set; } // Added to track damage history
+        public string ItemName { get; set; }
+        public string Category { get; set; }
     }
 }

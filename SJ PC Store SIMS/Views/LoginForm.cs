@@ -137,6 +137,7 @@ namespace SJ_PC_Store_SIMS.Views
 
         public LoginForm()
         {
+            InitializeComponent();
             InitializeProgrammaticUI();
             ApplyTheme();
         }
@@ -529,6 +530,21 @@ namespace SJ_PC_Store_SIMS.Views
                 txt.BackColor = UITheme.CurrentInputBg;
                 txt.ForeColor = UITheme.CurrentText;
             }
+        }
+
+        private void InitializeComponent()
+        {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(LoginForm));
+            SuspendLayout();
+            // 
+            // LoginForm
+            // 
+            ClientSize = new Size(284, 261);
+            Icon = (System.Drawing.Icon)resources.GetObject("$this.Icon");
+            Name = "LoginForm";
+            Text = "SJ PC Store SIMS";
+            ResumeLayout(false);
+
         }
     }
 }

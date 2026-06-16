@@ -41,13 +41,23 @@ namespace SJ_PC_Store_SIMS.Controllers
             return roles;
         }
 
-        public bool CreateRole(string roleName, RolePermissions perms, string currentUserId)
+        public string CreateRole(string roleName, RolePermissions perms, string currentUserId)
         {
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
+                conn.Open();
+
+                // 1. Explicit validation: Prevent Duplicate Primary Keys
+                SqlCommand checkCmd = new SqlCommand("SELECT COUNT(1) FROM [ROLE] WHERE RoleName = @Name", conn);
+                checkCmd.Parameters.AddWithValue("@Name", roleName);
+                if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
+                {
+                    return $"ERROR: The role '{roleName}' already exists. Please choose a different name.";
+                }
+
                 string query = @"
-            INSERT INTO [ROLE] (RoleName, CanManageUsers, CanManageInventory, CanProcessSales, CanManageProcurement, CanViewReports, CanManageData, IsActive)
-            VALUES (@Name, @Users, @Inv, @Sales, @Proc, @Rep, @Data, 1)";
+                    INSERT INTO [ROLE] (RoleName, CanManageUsers, CanManageInventory, CanProcessSales, CanManageProcurement, CanViewReports, CanManageData, IsActive)
+                    VALUES (@Name, @Users, @Inv, @Sales, @Proc, @Rep, @Data, 1)";
 
                 SqlCommand cmd = new SqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@Name", roleName);
@@ -60,12 +70,14 @@ namespace SJ_PC_Store_SIMS.Controllers
 
                 try
                 {
-                    conn.Open();
-                    bool success = cmd.ExecuteNonQuery() > 0;
-                    if (success) LogActivity(currentUserId, $"Created new dynamic role: {roleName}", "User Management");
-                    return success;
+                    cmd.ExecuteNonQuery();
+                    LogActivity(currentUserId, $"Created new dynamic role: {roleName}", "User Management");
+                    return "SUCCESS";
                 }
-                catch { return false; }
+                catch (Exception ex)
+                {
+                    return $"Database error: {ex.Message}";
+                }
             }
         }
 
@@ -146,15 +158,25 @@ namespace SJ_PC_Store_SIMS.Controllers
         }
 
         // 5. Create a New User
-        public bool CreateUser(UserModel user, string rawPassword, string currentUserId)
+        public string CreateUser(UserModel user, string rawPassword, string currentUserId)
         {
             user.Passkey = GeneratePasskey();
 
             using (SqlConnection conn = DatabaseHelper.GetConnection())
             {
+                conn.Open();
+
+                // 1. Explicit validation: Prevent Duplicate Usernames
+                SqlCommand checkCmd = new SqlCommand("SELECT COUNT(1) FROM [USER] WHERE Username = @UN", conn);
+                checkCmd.Parameters.AddWithValue("@UN", user.Username);
+                if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
+                {
+                    return $"ERROR: The username '{user.Username}' is already taken.";
+                }
+
                 string query = @"
-            INSERT INTO [USER] (UserID, FirstName, LastName, ContactNumber, Username, PasswordHash, Role, Passkey, Status, CreatedBy, CreatedTime) 
-            VALUES (@ID, @FN, @LN, @CN, @UN, @PH, @R, @PK, 'Active', @CB, GETDATE())";
+                    INSERT INTO [USER] (UserID, FirstName, LastName, ContactNumber, Username, PasswordHash, Role, Passkey, Status, CreatedBy, CreatedTime) 
+                    VALUES (@ID, @FN, @LN, @CN, @UN, @PH, @R, @PK, 'Active', @CB, GETDATE())";
 
                 SqlCommand cmd = new SqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@ID", user.UserID);
@@ -169,12 +191,14 @@ namespace SJ_PC_Store_SIMS.Controllers
 
                 try
                 {
-                    conn.Open();
-                    bool success = cmd.ExecuteNonQuery() > 0;
-                    if (success) LogActivity(currentUserId, $"Created new user account: {user.Username}", "User Management");
-                    return success;
+                    cmd.ExecuteNonQuery();
+                    LogActivity(currentUserId, $"Created new user account: {user.Username}", "User Management");
+                    return "SUCCESS";
                 }
-                catch { return false; }
+                catch (Exception ex)
+                {
+                    return $"Database error: {ex.Message}";
+                }
             }
         }
 

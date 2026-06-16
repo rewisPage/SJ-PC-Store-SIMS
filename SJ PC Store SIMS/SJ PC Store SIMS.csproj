@@ -7,13 +7,19 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>microchip_118062.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="microchip_118062.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
     <PackageReference Include="ReaLTaiizor" Version="3.8.1.8" />
+    <PackageReference Include="ScottPlot" Version="5.1.58" />
     <PackageReference Include="ScottPlot.WinForms" Version="5.1.58" />
   </ItemGroup>
 

@@ -360,25 +360,127 @@ namespace SJ_PC_Store_SIMS.Views
         {
             Form parent = this.FindForm();
             if (parent == null) return;
-            Label lbl = new Label { Text = msg, ForeColor = UITheme.CurrentText, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), AutoSize = true };
-            int toastWidth = Math.Max(320, lbl.PreferredWidth + 80);
-            Form toast = new Form { StartPosition = FormStartPosition.Manual, FormBorderStyle = FormBorderStyle.None, BackColor = UITheme.CurrentPanel, Size = new Size(toastWidth, 60), TopMost = true, ShowInTaskbar = false };
-            toast.Location = new Point(parent.Right - toastWidth - 20, parent.Bottom - 80);
+
+            // Calculate dynamic size based on text length
+            Font msgFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+            int textWidth = TextRenderer.MeasureText(msg, msgFont).Width;
+            int toastWidth = Math.Max(350, textWidth + 100);
+
+            // Modern color palette
+            Color accentColor = success ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68);
+            Color bgColor = UITheme.IsDarkMode ? Color.FromArgb(45, 42, 50) : Color.White;
+
+            Form toast = new Form
+            {
+                StartPosition = FormStartPosition.Manual,
+                FormBorderStyle = FormBorderStyle.None,
+                BackColor = bgColor,
+                Size = new Size(toastWidth, 60),
+                TopMost = true,
+                ShowInTaskbar = false,
+                Opacity = 0 // Starts invisible for the fade-in animation
+            };
+
+            // Relocate to the TOP-RIGHT of the workspace
+            int xLoc = parent.Right - toastWidth - 30;
+            int yLoc = parent.Top + 50;
+            toast.Location = new Point(xLoc, yLoc);
+
+            // Custom Paint for a sleek, modern UI (Left accent bar + subtle outer border)
             toast.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (GraphicsPath path = new GraphicsPath())
+
+                // Subtle outer border
+                using (Pen borderPen = new Pen(UITheme.CurrentBorder, 1))
                 {
-                    int r = 8; path.AddArc(0, 0, r, r, 180, 90); path.AddArc(toast.Width - r - 1, 0, r, r, 270, 90); path.AddArc(toast.Width - r - 1, toast.Height - r - 1, r, r, 0, 90); path.AddArc(0, toast.Height - r - 1, r, r, 90, 90); path.CloseFigure(); toast.Region = new Region(path);
-                    using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawPath(p, path); }
+                    e.Graphics.DrawRectangle(borderPen, 0, 0, toast.Width - 1, toast.Height - 1);
+                }
+
+                // Heavy left accent line for quick status recognition
+                using (SolidBrush accentBrush = new SolidBrush(accentColor))
+                {
+                    e.Graphics.FillRectangle(accentBrush, 0, 0, 6, toast.Height);
                 }
             };
-            IconPictureBox icon = new IconPictureBox { IconChar = success ? IconChar.CheckCircle : IconChar.TimesCircle, IconColor = success ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68), IconSize = 24, Size = new Size(24, 24), Location = new Point(15, 18) };
-            lbl.Location = new Point(45, 20);
-            toast.Controls.AddRange(new Control[] { icon, lbl });
-            System.Windows.Forms.Timer t = new System.Windows.Forms.Timer { Interval = 3000 };
-            t.Tick += (s, e) => { toast.Close(); t.Stop(); };
-            toast.Show(); t.Start();
+
+            // Status Icon
+            IconPictureBox icon = new IconPictureBox
+            {
+                IconChar = success ? IconChar.CheckCircle : IconChar.ExclamationCircle,
+                IconColor = accentColor,
+                IconSize = 28,
+                Size = new Size(28, 28),
+                Location = new Point(20, 16),
+                BackColor = Color.Transparent
+            };
+
+            // Message Label
+            Label lbl = new Label
+            {
+                Text = msg,
+                ForeColor = UITheme.CurrentText,
+                Font = msgFont,
+                AutoSize = true,
+                Location = new Point(55, 19),
+                BackColor = Color.Transparent
+            };
+
+            // Interactive Close Button
+            IconPictureBox closeIcon = new IconPictureBox
+            {
+                IconChar = IconChar.Times,
+                IconColor = UITheme.MutedText,
+                IconSize = 16,
+                Size = new Size(16, 16),
+                Location = new Point(toast.Width - 30, 22),
+                Cursor = Cursors.Hand,
+                BackColor = Color.Transparent
+            };
+
+            // Smooth hover effects and click-to-close for the X button
+            closeIcon.MouseEnter += (s, e) => closeIcon.IconColor = Color.FromArgb(239, 68, 68);
+            closeIcon.MouseLeave += (s, e) => closeIcon.IconColor = UITheme.MutedText;
+
+            toast.Controls.AddRange(new Control[] { icon, lbl, closeIcon });
+
+            // Animation & Lifecycle Timers
+            System.Windows.Forms.Timer fadeTimer = new System.Windows.Forms.Timer { Interval = 15 };
+            System.Windows.Forms.Timer holdTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+            bool isFadingIn = true;
+
+            // Manual close logic
+            closeIcon.Click += (s, e) =>
+            {
+                holdTimer.Stop();
+                isFadingIn = false;
+                fadeTimer.Start();
+            };
+
+            // Opacity interpolator
+            fadeTimer.Tick += (s, e) =>
+            {
+                if (isFadingIn)
+                {
+                    if (toast.Opacity < 1) toast.Opacity += 0.1;
+                    else { fadeTimer.Stop(); holdTimer.Start(); }
+                }
+                else
+                {
+                    if (toast.Opacity > 0) toast.Opacity -= 0.1;
+                    else { fadeTimer.Stop(); toast.Close(); }
+                }
+            };
+
+            holdTimer.Tick += (s, e) =>
+            {
+                holdTimer.Stop();
+                isFadingIn = false;
+                fadeTimer.Start(); // Trigger fade out
+            };
+
+            toast.Show();
+            fadeTimer.Start(); // Trigger fade in
         }
 
         protected override void OnParentChanged(EventArgs e) { base.OnParentChanged(e); if (this.Parent != null) { this.Parent.BackColorChanged -= Parent_BackColorChanged; this.Parent.BackColorChanged += Parent_BackColorChanged; } }
@@ -976,31 +1078,39 @@ namespace SJ_PC_Store_SIMS.Views
             pnlItemHeader.Controls.Add(btnAddRow);
 
             tlpItemH = new TableLayoutPanel { Dock = DockStyle.Top, Height = 40, ColumnCount = 6 };
-            // --- Add a background color ---
-            tlpItemH.BackColor = UITheme.IsDarkMode
-                ? Color.FromArgb(34, 32, 38)   // dark header background
-                : Color.FromArgb(226, 230, 234); // light header background
-            // ------------------------------
+            tlpItemH.BackColor = UITheme.IsDarkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234);
 
-            // EXACT PIXEL ALIGNMENT TABLE LAYOUT HEADER. MANUALLY ADJUSTED COLUMN WIDTHS TO PERFECTLY FIT THE ADD ROW BUTTON AND THE DELETE BUTTON IN THE ITEM ROWS. DO NOT CHANGE
-            tlpItemH = new TableLayoutPanel { Dock = DockStyle.Top, Height = 40, ColumnCount = 7 };
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); // item code
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F)); // item name
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F)); // condition
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F)); // qty
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F)); // unit price
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F)); // total
-            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F)); // delete button column
-            // tlpItemH.Paint += (s, e) => { using (Pen p = new Pen(UITheme.CurrentBorder, 2)) { e.Graphics.DrawLine(p, 0, 39, tlpItemH.Width, 39); } }; - Removed the bottom border line for the header for better aesthetics since the header already has a distinct background color. DO NOT TOUCH THIS
+            // CRITICAL FIX: Add right padding to the header to match the FlowLayoutPanel's vertical scrollbar.
+            // This ensures the 100% calculation area is identical for both the header and the rows.
+            tlpItemH.Padding = new Padding(0, 0, SystemInformation.VerticalScrollBarWidth + 5, 0);
 
-            string[] hText = { "  ITEM CODE", "ITEM NAME", "CONDITION", "QTY", "UNIT PRICE (₱)", "TOTAL (₱)" };
-            for (int i = 0; i < 6; i++)
+            // EXACT PIXEL ALIGNMENT TABLE LAYOUT HEADER
+            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
+            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
+            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tlpItemH.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F));
+
+            string[] hText = { "  ITEM NAME", "CONDITION", "QTY", "UNIT PRICE (₱)", "TOTAL (₱)" };
+            for (int i = 0; i < 5; i++)
             {
-                Label hl = new Label { Text = hText[i], Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = UITheme.CurrentText, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }; // CHANGED Text Alignment to Middle left and Removed Bottom Padding 10 for centered looking column header text. DO NOT TOUCH THIS
-                tlpItemH.Controls.Add(hl, i, 0); _dynamicTexts.Add(hl);
+                Label hl = new Label { Text = hText[i], Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = UITheme.CurrentText, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+                tlpItemH.Controls.Add(hl, i, 0);
+                _dynamicTexts.Add(hl);
             }
 
             flpCreateItems = new BufferedFlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 15, 0, 0) };
+
+            // CRITICAL FIX: Dynamically resize all child rows whenever the FlowLayoutPanel size changes.
+            flpCreateItems.Resize += (s, e) =>
+            {
+                int targetWidth = flpCreateItems.ClientSize.Width - 5; // -5 to prevent horizontal scroll popping
+                foreach (Control row in flpCreateItems.Controls)
+                {
+                    row.Width = targetWidth;
+                }
+            };
 
             Panel pnlCreateTotalsWrapper = new Panel { Dock = DockStyle.Bottom, Height = 200, Padding = new Padding(0, 20, 0, 0) };
             Panel pnlCreateTotalsInner = new Panel { Dock = DockStyle.Right, Width = 350 };
@@ -1053,15 +1163,27 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void AddCreateItemRow(ProcurementItemModel existingItem = null)
         {
-            Panel row = new Panel { Width = flpCreateItems.Width - 25, Height = 45, Margin = new Padding(0, 0, 0, 10) };
-            TableLayoutPanel tlp = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 7 };
-            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F)); tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F)); tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F)); tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F)); tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 6F)); tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 4F));
+            // CRITICAL FIX: Match the initial row width dynamically rather than using a static offset.
+            int initialWidth = flpCreateItems.ClientSize.Width > 0 ? flpCreateItems.ClientSize.Width - 5 : flpCreateItems.Width - 25;
+            Panel row = new Panel { Width = initialWidth, Height = 45, Margin = new Padding(0, 0, 0, 10) };
 
-            DarkComboBox cCode = new DarkComboBox { Font = new Font("Consolas", 10.5F), Dock = DockStyle.Fill };
-            foreach (var item in _dbItems) cCode.Items.Add(item.ItemCode);
-            Control wCode = CreateInputWrapper(cCode, 100); wCode.Dock = DockStyle.Fill; wCode.Margin = new Padding(0, 0, 10, 0); _comboInputs.Add(cCode);
+            TableLayoutPanel tlp = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6 };
+            tlp.Margin = new Padding(0);
+            tlp.Padding = new Padding(0);
 
-            Label lName = new Label { Font = new Font("Segoe UI", 9.5F), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F));
+
+            DarkComboBox cCode = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), Dock = DockStyle.Fill };
+            foreach (var item in _dbItems) cCode.Items.Add($"{item.ItemCode} - {item.Category} {item.Specs}");
+
+            // Added a 5px left margin to align perfectly with the indented header text
+            Control wCode = CreateInputWrapper(cCode, 100); wCode.Dock = DockStyle.Fill; wCode.Margin = new Padding(5, 0, 10, 0); _comboInputs.Add(cCode);
+
             Label lCond = new Label { Font = new Font("Segoe UI", 9.5F), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
 
             TextBox tQty = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "1", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
@@ -1070,16 +1192,22 @@ namespace SJ_PC_Store_SIMS.Views
             TextBox tPrice = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
             Control wPrice = CreateInputWrapper(tPrice, 100); wPrice.Dock = DockStyle.Fill; wPrice.Margin = new Padding(0, 0, 10, 0); _textInputs.Add(tPrice);
 
-            Label lTotal = new Label { Text = "0.00", Font = new Font("Segoe UI", 10.5F, FontStyle.Bold), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight };
+            Label lTotal = new Label { Text = "0.00", Font = new Font("Segoe UI", 10.5F, FontStyle.Bold), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, Margin = new Padding(0, 0, 10, 0) };
 
-            IconButton btnDel = new IconButton { IconChar = IconChar.Trash, IconSize = 18, FlatStyle = FlatStyle.Flat, Dock = DockStyle.Fill, Cursor = Cursors.Hand, BackColor = Color.Transparent };
+            IconButton btnDel = new IconButton { IconChar = IconChar.Trash, IconSize = 18, FlatStyle = FlatStyle.Flat, Dock = DockStyle.Fill, Cursor = Cursors.Hand, BackColor = Color.Transparent, Margin = new Padding(0) };
             btnDel.FlatAppearance.BorderSize = 0; btnDel.ForeColor = Color.FromArgb(239, 68, 68); btnDel.IconColor = Color.FromArgb(239, 68, 68);
             btnDel.Click += (s, e) => { flpCreateItems.Controls.Remove(row); CalculateTotals(); };
 
             cCode.SelectedIndexChanged += (s, e) =>
             {
-                var match = _dbItems.FirstOrDefault(m => m.ItemCode == cCode.Text);
-                if (match != null) { lName.Text = $"{match.Category} {match.Specs}"; lCond.Text = match.ItemCondition; tPrice.Text = match.BaselineCost.ToString("0.00"); }
+                string selected = cCode.Text;
+                int splitIdx = selected.IndexOf(" - ");
+                if (splitIdx > 0)
+                {
+                    string codeOnly = selected.Substring(0, splitIdx);
+                    var match = _dbItems.FirstOrDefault(m => m.ItemCode == codeOnly);
+                    if (match != null) { lCond.Text = match.ItemCondition; tPrice.Text = match.BaselineCost.ToString("0.00"); }
+                }
                 CalculateTotals();
             };
 
@@ -1091,13 +1219,20 @@ namespace SJ_PC_Store_SIMS.Views
             };
             tQty.TextChanged += calc; tPrice.TextChanged += calc;
 
-            tlp.Controls.Add(wCode, 0, 0); tlp.Controls.Add(lName, 1, 0); tlp.Controls.Add(lCond, 2, 0); tlp.Controls.Add(wQty, 3, 0); tlp.Controls.Add(wPrice, 4, 0); tlp.Controls.Add(lTotal, 5, 0); tlp.Controls.Add(btnDel, 6, 0);
-            row.Controls.Add(tlp); _dynamicTexts.AddRange(new[] { lName, lTotal }); _mutedTexts.Add(lCond);
+            tlp.Controls.Add(wCode, 0, 0); tlp.Controls.Add(lCond, 1, 0); tlp.Controls.Add(wQty, 2, 0); tlp.Controls.Add(wPrice, 3, 0); tlp.Controls.Add(lTotal, 4, 0); tlp.Controls.Add(btnDel, 5, 0);
+            row.Controls.Add(tlp);
 
-            if (existingItem != null) { cCode.Text = existingItem.ItemCode; tQty.Text = existingItem.Quantity.ToString(); tPrice.Text = existingItem.UnitPrice.ToString("0.00"); }
+            _dynamicTexts.Add(lTotal); _mutedTexts.Add(lCond);
+
+            if (existingItem != null)
+            {
+                cCode.Text = $"{existingItem.ItemCode} - {existingItem.Description}";
+                tQty.Text = existingItem.Quantity.ToString();
+                tPrice.Text = existingItem.UnitPrice.ToString("0.00");
+            }
 
             flpCreateItems.Controls.Add(row);
-            row.Tag = new { Code = cCode, Qty = tQty, Price = tPrice, Name = lName };
+            row.Tag = new { Code = cCode, Qty = tQty, Price = tPrice };
             ApplyTheme();
         }
 
@@ -1221,12 +1356,25 @@ namespace SJ_PC_Store_SIMS.Views
             foreach (Control row in flpCreateItems.Controls)
             {
                 dynamic tag = row.Tag; if (tag == null) continue;
-                string code = ((DarkComboBox)tag.Code).Text;
-                if (string.IsNullOrEmpty(code)) continue;
+                string selectedText2 = ((DarkComboBox)tag.Code).Text;
+                if (string.IsNullOrEmpty(selectedText2)) continue;
+
+                string code = "";
+                string desc = "";
+                int splitIdx = selectedText2.IndexOf(" - ");
+
+                // Split the merged ComboBox text back into Code and Description
+                if (splitIdx > 0)
+                {
+                    code = selectedText2.Substring(0, splitIdx).Trim();
+                    desc = selectedText2.Substring(splitIdx + 3).Trim();
+                }
+                else continue;
+
                 po.Items.Add(new ProcurementItemModel
                 {
                     ItemCode = code,
-                    Description = ((Label)tag.Name).Text,
+                    Description = desc,
                     Quantity = int.Parse(((TextBox)tag.Qty).Text),
                     UnitPrice = decimal.Parse(((TextBox)tag.Price).Text)
                 });
