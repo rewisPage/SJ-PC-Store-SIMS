@@ -6,6 +6,10 @@ The **Integrated Sales and Inventory Management System (SIMS)** is a centralized
 [![Watch the System Walkthrough](https://github.com/user-attachments/assets/6237eeeb-5035-4ecd-a559-480bd429d209)](https://youtu.be/tpU0Wcr3cjY?si=iODYypskujllj4S0)
 
 
+
+Uploading SJ-PC-Store-System-Video.mp4…
+
+
 ## 🔄 System Overview and Ecosystem
 Unlike traditional retail environments with fixed manufacturer prices, SJ PC Store utilizes a component-based business model[cite: 1]. The system ecosystem addresses this by bridging two core enterprise workflows:
 
