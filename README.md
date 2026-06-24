@@ -3,11 +3,11 @@
 ## 📖 About the Project
 The **Integrated Sales and Inventory Management System (SIMS)** is a centralized, Windows-based desktop application designed specifically for SJ PC Store, an award-winning local electronics business located along McArthur Highway in Bocaue, Philippines. Transitioning the shop from manual logbooks and fragmented Microsoft Excel sheets, this system streamlines daily operations by tightly integrating sales transactions with real-time, serialized inventory tracking. It reduces data entry errors, optimizes transaction speed, and provides accurate financial insights for management.
 
-[![Watch the System Walkthrough](https://github.com/user-attachments/assets/6237eeeb-5035-4ecd-a559-480bd429d209)](https://youtu.be/tpU0Wcr3cjY?si=iODYypskujllj4S0)
+[![Watch the System Walkthrough](https://github.com/user-attachments/assets/6237eeeb-5035-4ecd-a559-480bd429d209)](https://github.com/user-attachments/assets/e3f759e3-4459-4351-8656-2347c4809cfc)
 
 
 
-Uploading SJ-PC-Store-System-Video.mp4…
+
 
 
 ## 🔄 System Overview and Ecosystem
