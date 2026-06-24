@@ -11,7 +11,7 @@ The **Integrated Sales and Inventory Management System (SIMS)** is a centralized
 
 
 ## 🔄 System Overview and Ecosystem
-Unlike traditional retail environments with fixed manufacturer prices, SJ PC Store utilizes a component-based business model[cite: 1]. The system ecosystem addresses this by bridging two core enterprise workflows:
+Unlike traditional retail environments with fixed manufacturer prices, SJ PC Store utilizes a component-based business model. The system ecosystem addresses this by bridging two core enterprise workflows:
 
 * **📦 Procure-to-Pay (P2P):** Handles inbound logistics. It categorizes wholesale or scrap hardware by specific blueprints (e.g., storage capacity and health, RAM generation) and logs the baseline costs, updating inventory and triggering low-stock alerts when inventory dips below minimum thresholds.
 * **🛒 Order-to-Cash (O2C):** Manages outbound sales. Because the shop deals with second-hand units whose prices fluctuate based on their internal components, the system dynamically calculates the final price during the custom assembly and checkout process. It then processes the payment, issues a digital receipt, and finalizes the sale by deducting the specific serialized items from the inventory.
@@ -20,8 +20,8 @@ Unlike traditional retail environments with fixed manufacturer prices, SJ PC Sto
 * **🗄️ Two-Tier Inventory Management:** Separates the *Item Master* (hardware blueprints and baseline costs) from the *Stock Instance* (individual physical items tracked via unique alphanumeric serial numbers).
 * **💰 Dynamic Pricing & Valuation Module:** Automatically aggregates the dynamically fluctuating second-hand values of internal components (CPU, RAM, SSD) to calculate the total selling price of custom-built desktop and laptop units.
 * **🧾 Point-of-Sale (POS) Processing:** An automated checkout interface that processes customer transactions, calculates subtotals and discounts, and generates thermal-printed digital receipts containing specific warranty terms and serial numbers.
-* **🚚 Procurement & Goods Receipt:** Allows staff to log Purchase Orders (POs)[cite: 1]. During physical delivery, the system dynamically generates input fields based on the PO quantity to enforce strict manual entry of unique serial numbers.
-* **🔒 Role-Based Access Control & Security:** Restricts sensitive financial data to Administrators[cite: 1]. Features a secure offline account recovery protocol utilizing a customizable 6-character alphanumeric passkey.
+* **🚚 Procurement & Goods Receipt:** Allows staff to log Purchase Orders (POs). During physical delivery, the system dynamically generates input fields based on the PO quantity to enforce strict manual entry of unique serial numbers.
+* **🔒 Role-Based Access Control & Security:** Restricts sensitive financial data to Administrators. Features a secure offline account recovery protocol utilizing a customizable 6-character alphanumeric passkey.
 * **♻️ Defective/Waste Tracking:** Isolates dead-on-arrival or defective components from sellable inventory while retaining their data for financial auditing.
 * **📊 Report Generation Center:** Aggregates data to generate and export real-time PDF reports detailing daily, weekly, and monthly sales revenue, expenses, and inventory valuation.
 
