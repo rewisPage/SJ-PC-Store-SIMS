@@ -336,7 +336,7 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void InitializeUI()
         {
-            // --- LEFT PANE (MASTER LIST) ---
+            // --- LEFT PANEL (MASTER LIST) ---
             pnlMaster = new SmoothPanel { Dock = DockStyle.Left, Width = 380, Padding = new Padding(0, 0, 20, 0) };
             RoundedPanel masterContainer = new RoundedPanel { Dock = DockStyle.Fill, BorderRadius = 6, BorderSize = 1, Padding = new Padding(1) };
             _borderedContainers.Add(masterContainer);
@@ -537,7 +537,21 @@ namespace SJ_PC_Store_SIMS.Views
 
                 Label lblName = new Label { Text = sup.CompanyName, Font = new Font("Segoe UI", 11F, FontStyle.Bold), AutoSize = true, Location = new Point(20, 15), BackColor = Color.Transparent };
                 Label lblID = new Label { Text = sup.SupplierID, Font = new Font("Consolas", 10.5F, FontStyle.Bold), AutoSize = true, Location = new Point(20, 42), BackColor = Color.Transparent };
-                card.Controls.AddRange(new Control[] { lblName, lblID });
+
+                // NEW: Create the colored Status Label
+                Label lblStatus = new Label
+                {
+                    Text = sup.IsActive ? "Active" : "Inactive",
+                    Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                    ForeColor = sup.IsActive ? Color.FromArgb(16, 185, 129) : Color.FromArgb(239, 68, 68), // Green if Active, Red if Inactive
+                    AutoSize = true,
+                    BackColor = Color.Transparent
+                };
+
+                card.Controls.AddRange(new Control[] { lblName, lblID, lblStatus });
+
+                // Dynamically anchor the status label to the right edge of the card
+                lblStatus.Location = new Point(card.Width - lblStatus.PreferredWidth - 20, 42);
 
                 bool isActiveCard = (_selectedSupplier != null && _selectedSupplier.SupplierID == sup.SupplierID);
 
@@ -565,6 +579,7 @@ namespace SJ_PC_Store_SIMS.Views
                 card.MouseEnter += enter; card.MouseLeave += leave; card.Click += click;
                 lblName.MouseEnter += enter; lblName.MouseLeave += leave; lblName.Click += click;
                 lblID.MouseEnter += enter; lblID.MouseLeave += leave; lblID.Click += click;
+                lblStatus.MouseEnter += enter; lblStatus.MouseLeave += leave; lblStatus.Click += click; // Connects the new status label
 
                 applyCardTheme();
                 flpSuppliers.Controls.Add(card);

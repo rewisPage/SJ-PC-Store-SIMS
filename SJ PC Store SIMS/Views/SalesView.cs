@@ -933,7 +933,7 @@ namespace SJ_PC_Store_SIMS.Views
             cmbItemSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbItemSelect.SelectedIndexChanged += (s, e) => OnItemSelected();
             _comboInputs.Add(cmbItemSelect);
-            Control wItem = CreateInputWrapper(cmbItemSelect, 250);
+            Control wItem = CreateInputWrapper(cmbItemSelect, 500);
             wItem.Location = new Point(165, 20);
             wItem.Margin = new Padding(0);
 
@@ -941,21 +941,21 @@ namespace SJ_PC_Store_SIMS.Views
             cmbSerialSelect = new DarkComboBox { Font = new Font("Segoe UI", 10.5F), DropDownStyle = ComboBoxStyle.DropDown };
             _comboInputs.Add(cmbSerialSelect);
             Control wSerial = CreateInputWrapper(cmbSerialSelect, 200);
-            wSerial.Location = new Point(425, 20);
+            wSerial.Location = new Point(675, 20);
             wSerial.Margin = new Padding(0);
 
             // 4. Setup Qty with Wrapper
             txtQty = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "1", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None };
             _textInputs.Add(txtQty);
             Control wQty = CreateInputWrapper(txtQty, 90);
-            wQty.Location = new Point(635, 20);
+            wQty.Location = new Point(885, 20);
             wQty.Margin = new Padding(0);
 
             // 5. Setup Price with Wrapper
             txtPrice = new TextBox { Font = new Font("Segoe UI", 10.5F), Text = "0.00", TextAlign = HorizontalAlignment.Right, BorderStyle = BorderStyle.None, ReadOnly = true };
             _textInputs.Add(txtPrice);
             Control wPrice = CreateInputWrapper(txtPrice, 100);
-            wPrice.Location = new Point(735, 20);
+            wPrice.Location = new Point(985, 20);
             wPrice.Margin = new Padding(0);
 
             // Add all wrappers to the panel

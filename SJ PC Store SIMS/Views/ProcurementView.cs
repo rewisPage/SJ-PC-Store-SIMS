@@ -1541,16 +1541,19 @@ namespace SJ_PC_Store_SIMS.Views
             }
             else if (type == "GoodsReceipt")
             {
-                modal.Size = new Size(800, 600);
+                // 1. Made the modal wider (1000px) to comfortably fit long item names
+                modal.Size = new Size(1000, 600);
                 Panel pnlHeader = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = UITheme.IsDarkMode ? Color.FromArgb(34, 32, 38) : Color.FromArgb(226, 230, 234) };
                 Label lblTitle = new Label { Text = "Process Goods Receipt (3-Way Match)", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.CurrentText, AutoSize = true, Location = new Point(50, 17) };
-                IconButton btnClose = new IconButton { IconChar = IconChar.Times, IconSize = 20, Size = new Size(40, 40), FlatStyle = FlatStyle.Flat, ForeColor = UITheme.MutedText, BackColor = Color.Transparent, Cursor = Cursors.Hand, Location = new Point(750, 10) };
+
+                // Adjusted close button X-coordinate to 950
+                IconButton btnClose = new IconButton { IconChar = IconChar.Times, IconSize = 20, Size = new Size(40, 40), FlatStyle = FlatStyle.Flat, ForeColor = UITheme.MutedText, BackColor = Color.Transparent, Cursor = Cursors.Hand, Location = new Point(950, 10) };
                 btnClose.FlatAppearance.BorderSize = 0; btnClose.Click += (s, e) => modal.Close();
                 IconPictureBox hIcon = new IconPictureBox { IconChar = IconChar.BoxOpen, IconColor = UITheme.AccentYellow, IconSize = 22, Size = new Size(24, 24), Location = new Point(20, 18) };
                 pnlHeader.Controls.AddRange(new Control[] { hIcon, lblTitle, btnClose });
 
                 Panel body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(25) };
-                Label info = new Label { Text = $"INVENTORY AUTOMATION ACTIVE\nYou are receiving {_selectedPO.PO_Number}.\nPlease enter physical Serial Numbers below to inject them into STOCK_INSTANCE.", Font = new Font("Segoe UI", 10F, FontStyle.Italic), ForeColor = Color.FromArgb(59, 130, 246), AutoSize = false, Size = new Size(750, 80), Location = new Point(25, 20) };
+                Label info = new Label { Text = $"INVENTORY AUTOMATION ACTIVE\nYou are receiving {_selectedPO.PO_Number}.\nPlease enter physical Serial Numbers below to inject them into Inventory.", Font = new Font("Segoe UI", 10F, FontStyle.Italic), ForeColor = Color.FromArgb(59, 130, 246), AutoSize = false, Size = new Size(950, 80), Location = new Point(25, 20) };
                 body.Controls.Add(info);
 
                 int y = 110;
@@ -1560,19 +1563,29 @@ namespace SJ_PC_Store_SIMS.Views
                     for (int i = 0; i < item.Quantity; i++)
                     {
                         Label lNum = new Label { Text = $"#{count}", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UITheme.MutedText, Location = new Point(25, y), AutoSize = true };
-                        Label lName = new Label { Text = item.ItemCode, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UITheme.CurrentText, Location = new Point(80, y + 3), AutoSize = true };
 
-                        RoundedPanel pCode = new RoundedPanel { Size = new Size(350, 38), Location = new Point(200, y - 5), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
+                        // 2. Concatenate the Code and Description for UI display
+                        string displayName = $"{item.ItemCode} - {item.Description}";
+
+                        // Added MaximumSize for text wrapping, and stored the raw ItemCode inside the Tag property
+                        Label lName = new Label { Text = displayName, Tag = item.ItemCode, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UITheme.CurrentText, Location = new Point(80, y + 3), AutoSize = true, MaximumSize = new Size(330, 0) };
+
+                        // 3. Shifted pCode X-Coordinate from 200 -> 420 to make room for the label
+                        RoundedPanel pCode = new RoundedPanel { Size = new Size(350, 38), Location = new Point(420, y - 5), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 8, 10, 8) };
                         TextBox tCode = new TextBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText, Font = new Font("Consolas", 11F) };
                         pCode.Controls.Add(tCode);
 
-                        RoundedPanel pStat = new RoundedPanel { Size = new Size(120, 38), Location = new Point(560, y - 5), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 7, 10, 7) };
+                        // 4. Shifted pStat X-Coordinate from 560 -> 780
+                        RoundedPanel pStat = new RoundedPanel { Size = new Size(120, 38), Location = new Point(780, y - 5), BorderRadius = 4, BorderSize = 1, BorderColor = UITheme.CurrentBorder, BackColor = UITheme.CurrentInputBg, Padding = new Padding(10, 7, 10, 7) };
                         DarkComboBox cStat = new DarkComboBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F), Cursor = Cursors.Hand, BackColor = UITheme.CurrentInputBg, ForeColor = UITheme.CurrentText };
                         cStat.Items.AddRange(new[] { "Available", "Defective" }); cStat.SelectedIndex = 0;
                         pStat.Controls.Add(cStat);
 
                         body.Controls.AddRange(new Control[] { lNum, lName, pCode, pStat });
-                        y += 50; count++;
+
+                        // Dynamic spacing just in case the label wrapped to two lines
+                        y += Math.Max(50, lName.Height + 20);
+                        count++;
                     }
                 }
 
@@ -1588,19 +1601,18 @@ namespace SJ_PC_Store_SIMS.Views
 
                     foreach (Control c in body.Controls)
                     {
-                        if (c is RoundedPanel rp && rp.Location.X == 200)
+                        // Update extraction lookup to use X == 420
+                        if (c is RoundedPanel rp && rp.Location.X == 420)
                         {
                             TextBox tb = (TextBox)rp.Controls[0];
                             string serialInput = tb.Text.Trim();
 
-                            // 1. Validate against blank/empty textboxes
                             if (string.IsNullOrWhiteSpace(serialInput))
                             {
                                 ShowToast("Please fill in all Serial Number fields.", false);
                                 return;
                             }
 
-                            // 2. Validate against duplicate serial numbers within the form itself
                             if (!duplicateCheck.Add(serialInput))
                             {
                                 ShowToast($"Duplicate input detected: '{serialInput}'. Serial Numbers must be unique.", false);
@@ -1610,8 +1622,11 @@ namespace SJ_PC_Store_SIMS.Views
                             string stat = "Available"; string itemCode = "UNKNOWN";
                             foreach (Control peer in body.Controls)
                             {
-                                if (peer is RoundedPanel rp2 && rp2.Location.X == 560 && rp2.Location.Y == rp.Location.Y) stat = ((DarkComboBox)rp2.Controls[0]).Text;
-                                if (peer is Label lbl && lbl.Location.X == 80 && Math.Abs(lbl.Location.Y - rp.Location.Y) < 10) itemCode = lbl.Text;
+                                // Update extraction lookups for Status (X == 780)
+                                if (peer is RoundedPanel rp2 && rp2.Location.X == 780 && rp2.Location.Y == rp.Location.Y) stat = ((DarkComboBox)rp2.Controls[0]).Text;
+
+                                // 5. EXTRACT pure ItemCode via the Tag property to avoid DB crashes
+                                if (peer is Label lbl && lbl.Location.X == 80 && Math.Abs(lbl.Location.Y - rp.Location.Y) < 15) itemCode = lbl.Tag?.ToString() ?? "UNKNOWN";
                             }
                             physicalItems.Add(new StockInstanceModel { SerialNumber = serialInput, ItemCode = itemCode, Status = stat, SupplierID = _selectedPO.SupplierID, PO_Number = _selectedPO.PO_Number });
                         }
@@ -1619,7 +1634,6 @@ namespace SJ_PC_Store_SIMS.Views
 
                     try
                     {
-                        // Call the updated controller method
                         string result = _procController.ProcessGoodsReceipt(_selectedPO.PO_Number, physicalItems, _activeUserId);
 
                         if (result == "SUCCESS")
@@ -1630,7 +1644,6 @@ namespace SJ_PC_Store_SIMS.Views
                         }
                         else
                         {
-                            // Display the exact validation/database error (e.g. "ERROR: Serial Number '...' already exists")
                             ShowToast(result, false);
                         }
                     }

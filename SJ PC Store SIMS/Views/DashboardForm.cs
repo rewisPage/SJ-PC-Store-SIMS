@@ -5,6 +5,7 @@ using SJ_PC_Store_SIMS.Controllers;
 using SJ_PC_Store_SIMS.Models;
 using SJ_PC_Store_SIMS.Utils;
 using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using Color = System.Drawing.Color;
 using Font = System.Drawing.Font;
 using FontStyle = System.Drawing.FontStyle;
@@ -20,7 +21,121 @@ namespace SJ_PC_Store_SIMS.Views
         {
             this.DoubleBuffered = true;
             this.ResizeRedraw = true;
+            // Force hardware acceleration and prevent background smearing
+            this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
         }
+
+        // Prevent Windows from doing messy pixel-shifting when scrolling
+        protected override void OnScroll(ScrollEventArgs se)
+        {
+            base.OnScroll(se);
+            this.Invalidate(true);
+        }
+    }
+
+    public class ThemedScrollBar : Control
+    {
+        private Panel _target;
+        private int _thumbHeight = 50;
+        private float _thumbY = 0;
+        private bool _isDragging = false;
+        private int _dragStartY = 0;
+        private float _dragStartThumbY = 0;
+
+        public ThemedScrollBar(Panel target)
+        {
+            _target = target;
+            this.Width = 8; // Super thin modern width
+            this.Cursor = Cursors.Hand;
+            this.DoubleBuffered = true;
+            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
+            this.BackColor = Color.Transparent;
+
+            // Sync interactions to keep the thumb updated
+            _target.MouseWheel += (s, e) => UpdateThumb();
+            _target.Scroll += (s, e) => UpdateThumb();
+            _target.Resize += (s, e) => UpdateThumb();
+            _target.ControlAdded += (s, e) => UpdateThumb();
+            _target.ControlRemoved += (s, e) => UpdateThumb();
+        }
+
+        public void UpdateThumb()
+        {
+            int maxScroll = _target.DisplayRectangle.Height - _target.ClientSize.Height;
+            if (maxScroll <= 0)
+            {
+                this.Visible = false;
+                return;
+            }
+            this.Visible = true;
+
+            float visibleRatio = (float)_target.ClientSize.Height / _target.DisplayRectangle.Height;
+            _thumbHeight = Math.Max(30, (int)(this.Height * visibleRatio));
+
+            float scrollRatio = (float)Math.Abs(_target.AutoScrollPosition.Y) / maxScroll;
+            _thumbY = scrollRatio * (this.Height - _thumbHeight);
+
+            this.Invalidate();
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && e.Y >= _thumbY && e.Y <= _thumbY + _thumbHeight)
+            {
+                _isDragging = true;
+                _dragStartY = e.Y;
+                _dragStartThumbY = _thumbY;
+            }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            if (_isDragging)
+            {
+                float delta = e.Y - _dragStartY;
+                float newThumbY = Math.Max(0, Math.Min(this.Height - _thumbHeight, _dragStartThumbY + delta));
+
+                float scrollRatio = newThumbY / (this.Height - _thumbHeight);
+                int maxScroll = _target.DisplayRectangle.Height - _target.ClientSize.Height;
+                int newScrollValue = (int)(scrollRatio * maxScroll);
+
+                _target.AutoScrollPosition = new Point(0, newScrollValue);
+                _target.Invalidate(true); // <-- ADD THIS LINE to force a clean redraw
+                UpdateThumb();
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e) => _isDragging = false;
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // Sync with UITheme dynamically
+            Color thumbColor = UITheme.IsDarkMode ? Color.FromArgb(80, 75, 85) : Color.FromArgb(190, 195, 200);
+
+            // Add a subtle hover effect
+            Point mousePos = this.PointToClient(System.Windows.Forms.Cursor.Position);
+            bool isHovering = mousePos.X >= 0 && mousePos.X <= this.Width && mousePos.Y >= _thumbY && mousePos.Y <= _thumbY + _thumbHeight;
+            if (isHovering || _isDragging) thumbColor = UITheme.MutedText;
+
+            using (GraphicsPath path = new GraphicsPath())
+            {
+                int d = this.Width;
+                path.AddArc(0, (int)_thumbY, d, d, 180, 180);
+                path.AddArc(0, (int)_thumbY + _thumbHeight - d, d, d, 0, 180);
+                path.CloseFigure();
+
+                using (SolidBrush thumbBrush = new SolidBrush(thumbColor))
+                {
+                    e.Graphics.FillPath(thumbBrush, path);
+                }
+            }
+        }
+
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); this.Invalidate(); }
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); this.Invalidate(); }
     }
 
     public partial class DashboardForm : Form
@@ -74,6 +189,29 @@ namespace SJ_PC_Store_SIMS.Views
         private FormsPlot _stockStatusPieChart;
         private FormsPlot _procurementBarChart;
 
+        [DllImport("user32.dll")]
+        private static extern int SendMessage(IntPtr hWnd, int wMsg, bool wParam, int lParam);
+        private const int WM_SETREDRAW = 11;
+
+        // Add this near your other interactive element declarations
+        private IconButton _currentActiveNavButton;
+
+        private Panel pnlDashWrapper;
+        private ThemedScrollBar _customScrollBar;
+
+        // =========================================================================
+        // HARDWARE ACCELERATION & ANTI-FLICKER ENGINE
+        // =========================================================================
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED - Forces double buffering on all child controls
+                return cp;
+            }
+        }
+
         public DashboardForm(UserModel user)
         {
             _currentUser = user;
@@ -106,19 +244,16 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void InitializeCharts()
         {
-            // Sales Bar Chart (Wide)
-            _salesBarChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(800, 280), BackColor = Color.Transparent };
+            _salesBarChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(800, 280), BackColor = UITheme.CurrentWorkspace };
             ((Panel)pnlSalesSection.Controls[1]).Controls.Add(_salesBarChart);
 
-            // Inventory Pies (Side-by-Side next to the vertical cards)
-            _inventoryDonutChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(400, 420), BackColor = Color.Transparent };
+            _inventoryDonutChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(400, 420), BackColor = UITheme.CurrentWorkspace };
             ((Panel)pnlInvSection.Controls[1]).Controls.Add(_inventoryDonutChart);
 
-            _stockStatusPieChart = new FormsPlot { Location = new Point(770, 0), Size = new Size(400, 420), BackColor = Color.Transparent };
+            _stockStatusPieChart = new FormsPlot { Location = new Point(770, 0), Size = new Size(400, 420), BackColor = UITheme.CurrentWorkspace };
             ((Panel)pnlInvSection.Controls[1]).Controls.Add(_stockStatusPieChart);
 
-            // Procurement Bar Chart (Wide)
-            _procurementBarChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(800, 280), BackColor = Color.Transparent };
+            _procurementBarChart = new FormsPlot { Location = new Point(350, 0), Size = new Size(800, 280), BackColor = UITheme.CurrentWorkspace };
             ((Panel)pnlProcSection.Controls[1]).Controls.Add(_procurementBarChart);
         }
 
@@ -145,6 +280,10 @@ namespace SJ_PC_Store_SIMS.Views
             FlowLayoutPanel flpNav = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 20, 0, 0), BackColor = Color.Transparent };
 
             btnDash = CreateNavButton("Dashboard", IconChar.ChartPie, true);
+
+            // Add this immediately below it:
+            _currentActiveNavButton = btnDash;
+
             btnPOS = CreateNavButton("Sales POS", IconChar.ShoppingCart, false);
             btnInv = CreateNavButton("Inventory", IconChar.Boxes, false);
             btnProc = CreateNavButton("Procurement", IconChar.TruckLoading, false);
@@ -153,14 +292,14 @@ namespace SJ_PC_Store_SIMS.Views
             btnUsers = CreateNavButton("User Management", IconChar.Users, false);
             btnProfile = CreateNavButton("My Profile", IconChar.UserGear, false);
 
-            btnDash.Click += (s, e) => { lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
-            btnInv.Click += (s, e) => { lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView(_currentUser.UserID)); SetActiveNavButton(btnInv); };
-            btnData.Click += (s, e) => { lblPageTitle.Text = "Supplier Management"; LoadUserControl(new DataManagementView(_currentUser.UserID)); SetActiveNavButton(btnData); };
-            btnProc.Click += (s, e) => { lblPageTitle.Text = "Procurement Management"; LoadUserControl(new ProcurementView(_currentUser.UserID)); SetActiveNavButton(btnProc); };
-            btnPOS.Click += (s, e) => { lblPageTitle.Text = "Sales Management"; LoadUserControl(new SalesView(_currentUser.UserID)); SetActiveNavButton(btnPOS); };
-            btnReports.Click += (s, e) => { lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID, _currentUser.FirstName, _currentUser.LastName)); SetActiveNavButton(btnReports); };
-            btnUsers.Click += (s, e) => { lblPageTitle.Text = "User Management"; LoadUserControl(new UserManagementView(_currentUser.UserID)); SetActiveNavButton(btnUsers); };
-            btnProfile.Click += (s, e) => { lblPageTitle.Text = "My Profile"; LoadUserControl(new ProfileView(_currentUser.UserID)); SetActiveNavButton(btnProfile); };
+            btnDash.Click += (s, e) => { if (_currentActiveNavButton == btnDash) return; lblPageTitle.Text = "Master Dashboard"; ShowDashboard(); SetActiveNavButton(btnDash); };
+            btnPOS.Click += (s, e) => { if (_currentActiveNavButton == btnPOS) return; lblPageTitle.Text = "Sales Management"; LoadUserControl(new SalesView(_currentUser.UserID)); SetActiveNavButton(btnPOS); };
+            btnInv.Click += (s, e) => { if (_currentActiveNavButton == btnInv) return; lblPageTitle.Text = "Inventory Management"; LoadUserControl(new InventoryView(_currentUser.UserID)); SetActiveNavButton(btnInv); };
+            btnProc.Click += (s, e) => { if (_currentActiveNavButton == btnProc) return; lblPageTitle.Text = "Procurement Management"; LoadUserControl(new ProcurementView(_currentUser.UserID)); SetActiveNavButton(btnProc); };
+            btnData.Click += (s, e) => { if (_currentActiveNavButton == btnData) return; lblPageTitle.Text = "Supplier Management"; LoadUserControl(new DataManagementView(_currentUser.UserID)); SetActiveNavButton(btnData); };
+            btnReports.Click += (s, e) => { if (_currentActiveNavButton == btnReports) return; lblPageTitle.Text = "Report Center"; LoadUserControl(new ReportView(_currentUser.UserID, _currentUser.FirstName, _currentUser.LastName)); SetActiveNavButton(btnReports); };
+            btnUsers.Click += (s, e) => { if (_currentActiveNavButton == btnUsers) return; lblPageTitle.Text = "User Management"; LoadUserControl(new UserManagementView(_currentUser.UserID)); SetActiveNavButton(btnUsers); };
+            btnProfile.Click += (s, e) => { if (_currentActiveNavButton == btnProfile) return; lblPageTitle.Text = "My Profile"; LoadUserControl(new ProfileView(_currentUser.UserID)); SetActiveNavButton(btnProfile); };
 
             // Add them to the FlowLayoutPanel (Gaps will automatically close when a button is hidden)
             flpNav.Controls.AddRange(new Control[] { btnDash, btnPOS, btnInv, btnProc, btnData, btnReports, btnUsers, btnProfile });
@@ -247,7 +386,28 @@ namespace SJ_PC_Store_SIMS.Views
 
             // --- NATIVE WORKSPACE LAYOUT ENGINE ---
             pnlWorkspace = new Panel { Dock = DockStyle.Fill };
-            pnlDashboardContainer = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(40, 20, 40, 40) };
+
+            // 1. Remove transparency, explicitly use the workspace color
+            pnlDashWrapper = new Panel { Dock = DockStyle.Fill, BackColor = UITheme.CurrentWorkspace };
+
+            // 2. Upgrade to BufferedPanel and remove transparency
+            pnlDashboardContainer = new BufferedPanel { AutoScroll = true, Padding = new Padding(40, 20, 40, 40), BackColor = UITheme.CurrentWorkspace };
+
+            // 3. Initialize Custom Scrollbar
+            _customScrollBar = new ThemedScrollBar(pnlDashboardContainer) { Dock = DockStyle.Right };
+
+            pnlDashWrapper.Controls.Add(_customScrollBar);
+            pnlDashWrapper.Controls.Add(pnlDashboardContainer);
+            pnlWorkspace.Controls.Add(pnlDashWrapper);
+
+            // 4. Resize Magic: Stretch the container so the native scrollbar renders outside the visible bounds
+            pnlDashWrapper.Resize += (s, e) =>
+            {
+                pnlDashboardContainer.Location = new Point(0, 0);
+                // Add 30 pixels to push the native scrollbar off-screen to the right
+                pnlDashboardContainer.Size = new Size(pnlDashWrapper.Width + 30, pnlDashWrapper.Height);
+                _customScrollBar.UpdateThumb();
+            };
 
             // --- NATIVE WORKSPACE LAYOUT ENGINE (VERTICAL REDESIGN) ---
 
@@ -278,13 +438,6 @@ namespace SJ_PC_Store_SIMS.Views
             pnlUserSection = CreateModuleSection("USER MANAGEMENT OVERVIEW", 190, out Panel userGrid);
             userGrid.Controls.Add(CreateStatCard("Active Users", "0", "System Admins & Cashiers", IconChar.Users, false, 0, 0));
 
-            // Add them to the Workspace Container (Top Docking will automatically shift panels up when one is hidden)
-            pnlDashboardContainer.Controls.Add(pnlUserSection);
-            pnlDashboardContainer.Controls.Add(pnlDataSection);
-            pnlDashboardContainer.Controls.Add(pnlProcSection);
-            pnlDashboardContainer.Controls.Add(pnlInvSection);
-            pnlDashboardContainer.Controls.Add(pnlSalesSection);
-
             Panel pnlWelcomeWrapper = new Panel { Dock = DockStyle.Top, Height = 100, BackColor = Color.Transparent };
             lblWelcome = new Label { Text = $"Welcome Back, {_currentUser.FirstName}!", Font = new Font("Segoe UI", 22F, FontStyle.Bold), AutoSize = true, Location = new Point(0, 0) };
             Label lblSubWelcome = new Label { Text = "Here's what is happening with SJ PC Store today.", Font = UITheme.MainFont, AutoSize = true, Location = new Point(2, 45) };
@@ -292,14 +445,13 @@ namespace SJ_PC_Store_SIMS.Views
             _dynamicTexts.Add(lblWelcome);
             _mutedTexts.Add(lblSubWelcome);
 
+            // Add them to the Workspace Container ONCE (Reverse order because of DockStyle.Top)
             pnlDashboardContainer.Controls.Add(pnlUserSection);
             pnlDashboardContainer.Controls.Add(pnlDataSection);
             pnlDashboardContainer.Controls.Add(pnlProcSection);
             pnlDashboardContainer.Controls.Add(pnlInvSection);
             pnlDashboardContainer.Controls.Add(pnlSalesSection);
             pnlDashboardContainer.Controls.Add(pnlWelcomeWrapper);
-
-            pnlWorkspace.Controls.Add(pnlDashboardContainer);
 
             pnlWorkspace.Resize += (s, e) => { if (pnlNotifDropdown.Visible) pnlNotifDropdown.Visible = false; };
 
@@ -428,7 +580,12 @@ namespace SJ_PC_Store_SIMS.Views
         // ========================================================
         private void LoadUserControl(UserControl uc)
         {
-            pnlDashboardContainer.Visible = false;
+            SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, false, 0);
+            pnlWorkspace.SuspendLayout();
+
+            // Hide the entire dashboard wrapper
+            if (pnlDashWrapper != null) pnlDashWrapper.Visible = false;
+
             for (int i = pnlWorkspace.Controls.Count - 1; i >= 0; i--)
             {
                 if (pnlWorkspace.Controls[i] is UserControl oldUc) { pnlWorkspace.Controls.Remove(oldUc); oldUc.Dispose(); }
@@ -436,20 +593,41 @@ namespace SJ_PC_Store_SIMS.Views
             uc.Dock = DockStyle.Fill;
             pnlWorkspace.Controls.Add(uc);
             uc.BringToFront();
+
+            pnlWorkspace.ResumeLayout(true);
+            SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, true, 0);
+            pnlWorkspace.Refresh();
         }
 
         private void ShowDashboard()
         {
+            SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, false, 0);
+            pnlWorkspace.SuspendLayout();
+
             for (int i = pnlWorkspace.Controls.Count - 1; i >= 0; i--)
             {
                 if (pnlWorkspace.Controls[i] is UserControl oldUc) { pnlWorkspace.Controls.Remove(oldUc); oldUc.Dispose(); }
             }
-            pnlDashboardContainer.Visible = true;
-            pnlDashboardContainer.BringToFront();
+
+            // Show the wrapper and recalculate the custom thumb
+            if (pnlDashWrapper != null)
+            {
+                pnlDashWrapper.Visible = true;
+                pnlDashWrapper.BringToFront();
+                _customScrollBar.UpdateThumb();
+            }
+
+            pnlWorkspace.ResumeLayout(true);
+            SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, true, 0);
+            pnlWorkspace.Refresh();
         }
 
         private void SetActiveNavButton(IconButton activeBtn)
         {
+            // 1. Lock in the newly selected button
+            _currentActiveNavButton = activeBtn;
+
+            // 2. Existing styling loop
             foreach (var btn in _navButtons)
             {
                 btn.ForeColor = Color.FromArgb(209, 213, 219);
@@ -463,7 +641,9 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void BtnHamburger_Click(object sender, EventArgs e)
         {
-            this.SuspendLayout();
+            // 1. Suspend the painting of the sidebar completely to prevent the flash
+            SendMessage(pnlSidebar.Handle, WM_SETREDRAW, false, 0);
+            pnlSidebar.SuspendLayout();
 
             bool isExpanding = pnlSidebar.Width == 70;
             pnlSidebar.Width = isExpanding ? 260 : 70;
@@ -471,9 +651,17 @@ namespace SJ_PC_Store_SIMS.Views
             lblBrandText.Visible = isExpanding;
             logoIcon.Location = new Point(isExpanding ? 20 : 15, 19);
 
-            foreach (var btn in _navButtons) btn.Text = isExpanding ? btn.Tag.ToString() : "";
+            // Update the text on all buttons while painting is frozen
+            foreach (var btn in _navButtons)
+            {
+                btn.Text = isExpanding ? btn.Tag.ToString() : "";
+            }
 
-            this.ResumeLayout(true);
+            pnlSidebar.ResumeLayout(true);
+
+            // 2. Resume painting and force a clean, instant redraw
+            SendMessage(pnlSidebar.Handle, WM_SETREDRAW, true, 0);
+            pnlSidebar.Refresh();
         }
 
         private void PopulateTopItemsPanel(List<TopItemModel> topItems)
@@ -998,6 +1186,10 @@ namespace SJ_PC_Store_SIMS.Views
         {
             this.BackColor = UITheme.CurrentWorkspace;
 
+            if (pnlDashWrapper != null) pnlDashWrapper.BackColor = UITheme.CurrentWorkspace;
+            if (pnlDashboardContainer != null) pnlDashboardContainer.BackColor = UITheme.CurrentWorkspace; // <-- ADD THIS LINE
+            if (_customScrollBar != null) _customScrollBar.Invalidate();
+
             pnlWorkspace.BackColor = UITheme.CurrentWorkspace;
             pnlHeader.BackColor = UITheme.CurrentPanel;
             pnlSidebar.BackColor = UITheme.CurrentSidebarBg;
@@ -1030,6 +1222,8 @@ namespace SJ_PC_Store_SIMS.Views
             {
                 if (chart != null)
                 {
+                    chart.BackColor = UITheme.CurrentWorkspace;
+
                     chart.Plot.FigureBackground.Color = ScottPlot.Color.FromColor(UITheme.CurrentWorkspace);
                     chart.Plot.DataBackground.Color = ScottPlot.Color.FromColor(UITheme.CurrentWorkspace);
                     chart.Plot.Axes.Color(ScottPlot.Color.FromColor(UITheme.MutedText));

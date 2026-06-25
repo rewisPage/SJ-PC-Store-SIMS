@@ -135,6 +135,16 @@ namespace SJ_PC_Store_SIMS.Views
 
         private Label lblSystemLogin, lblEnterCreds, lblAccountRec, lblEnterPasskey;
 
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED - Forces double buffering on all child controls
+                return cp;
+            }
+        }
+
         public LoginForm()
         {
             InitializeComponent();
@@ -409,6 +419,9 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void SwitchView(string viewName)
         {
+            // Pause rendering calculations
+            this.SuspendLayout();
+
             pnlLoginView.Visible = (viewName == "Login");
             pnlRecoveryView.Visible = (viewName == "Recovery");
             pnlResetView.Visible = (viewName == "Reset");
@@ -424,6 +437,9 @@ namespace SJ_PC_Store_SIMS.Views
                 txtConfirmPassword.UseSystemPasswordChar = false;
                 txtConfirmPassword.Text = "Confirm new password";
             }
+
+            // Resume rendering instantly
+            this.ResumeLayout(true);
         }
 
         private void BtnSignIn_Click(object sender, EventArgs e)
@@ -500,6 +516,9 @@ namespace SJ_PC_Store_SIMS.Views
 
         private void ApplyTheme()
         {
+            // Pause rendering calculations
+            this.SuspendLayout();
+
             this.BackColor = UITheme.CurrentWorkspace;
             pnlLeftForm.BackColor = UITheme.CurrentPanel;
 
@@ -530,6 +549,9 @@ namespace SJ_PC_Store_SIMS.Views
                 txt.BackColor = UITheme.CurrentInputBg;
                 txt.ForeColor = UITheme.CurrentText;
             }
+
+            // Resume rendering instantly
+            this.ResumeLayout(true);
         }
 
         private void InitializeComponent()
