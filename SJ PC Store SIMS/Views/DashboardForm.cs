@@ -189,6 +189,10 @@ namespace SJ_PC_Store_SIMS.Views
         private FormsPlot _stockStatusPieChart;
         private FormsPlot _procurementBarChart;
 
+        // Add these near your other Main Layout Panels declarations
+        private Panel _loadingOverlay;
+        private PictureBox _spinnerBox;
+
         [DllImport("user32.dll")]
         private static extern int SendMessage(IntPtr hWnd, int wMsg, bool wParam, int lParam);
         private const int WM_SETREDRAW = 11;
@@ -520,6 +524,44 @@ namespace SJ_PC_Store_SIMS.Views
             this.Controls.Add(pnlWorkspace);
             this.Controls.Add(pnlHeader);
             this.Controls.Add(pnlSidebar);
+
+            // ========================================================
+            // LOADING OVERLAY ENGINE
+            // ========================================================
+            _loadingOverlay = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = UITheme.CurrentWorkspace, // Matches your theme perfectly
+                Visible = false
+            };
+
+            _spinnerBox = new PictureBox
+            {
+                // Ensure "Copy to Output Directory" is set to "Copy if newer" for Spinner.gif in VS
+                Image = System.Drawing.Image.FromFile(Path.Combine(Application.StartupPath, "Utils", "Spinner.gif")),
+                SizeMode = PictureBoxSizeMode.CenterImage,
+                BackColor = Color.Transparent,
+                Dock = DockStyle.Fill
+            };
+
+            _loadingOverlay.Controls.Add(_spinnerBox);
+
+            // Add it directly to the workspace so it covers the content area
+            pnlWorkspace.Controls.Add(_loadingOverlay);
+        }
+
+        private void ShowLoading()
+        {
+            _loadingOverlay.BackColor = UITheme.CurrentWorkspace; // Adapts if theme changes
+            _loadingOverlay.BringToFront();
+            _loadingOverlay.Visible = true;
+            Application.DoEvents(); // Force WinForms to paint the spinner immediately
+        }
+
+        private void HideLoading()
+        {
+            _loadingOverlay.Visible = false;
+            _loadingOverlay.SendToBack();
         }
 
         // =========================================================================
@@ -578,8 +620,11 @@ namespace SJ_PC_Store_SIMS.Views
         // ========================================================
         // WIRING & NAVIGATION LOGIC
         // ========================================================
-        private void LoadUserControl(UserControl uc)
+        private async void LoadUserControl(UserControl uc)
         {
+            ShowLoading();
+            await Task.Delay(500); // Brief pause to ensure the GIF starts animating before thread locks
+
             SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, false, 0);
             pnlWorkspace.SuspendLayout();
 
@@ -590,17 +635,26 @@ namespace SJ_PC_Store_SIMS.Views
             {
                 if (pnlWorkspace.Controls[i] is UserControl oldUc) { pnlWorkspace.Controls.Remove(oldUc); oldUc.Dispose(); }
             }
+
             uc.Dock = DockStyle.Fill;
             pnlWorkspace.Controls.Add(uc);
+
+            // Ensure the loading overlay stays on top of the newly added UserControl
+            _loadingOverlay.BringToFront();
             uc.BringToFront();
 
             pnlWorkspace.ResumeLayout(true);
             SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, true, 0);
             pnlWorkspace.Refresh();
+
+            HideLoading();
         }
 
-        private void ShowDashboard()
+        private async void ShowDashboard()
         {
+            ShowLoading();
+            await Task.Delay(500); // Brief pause to ensure the GIF starts animating
+
             SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, false, 0);
             pnlWorkspace.SuspendLayout();
 
@@ -620,6 +674,8 @@ namespace SJ_PC_Store_SIMS.Views
             pnlWorkspace.ResumeLayout(true);
             SendMessage(pnlWorkspace.Handle, WM_SETREDRAW, true, 0);
             pnlWorkspace.Refresh();
+
+            HideLoading();
         }
 
         private void SetActiveNavButton(IconButton activeBtn)

@@ -1,6 +1,4 @@
-﻿using System.Drawing;
-
-namespace SJ_PC_Store_SIMS.Utils
+﻿namespace SJ_PC_Store_SIMS.Utils
 {
     public static class UITheme
     {
